@@ -1,0 +1,56 @@
+// Copyright (C) 2023 Intel Corporation
+// SPDX-License-Identifier: Apache 2.0
+include "memoryManagement.fbs";
+
+namespace MVCNN;
+
+table UPADMATask {
+  /// A DMA is essentially a memory transfer from one location
+  /// to another.
+  /// Length, Striding information and other such required information is
+  /// already contained within the TensorReference objects.
+  src : TensorReference;
+  dst : TensorReference;
+}
+
+struct DMADescriptorReference {
+  // Total Number of Bytes to transfer per plane
+  len : uint;
+
+  // Width in bytes of data required from line of source.
+  src_width : uint;
+
+  src_stride : uint;
+
+  src_plane_stride : uint;
+
+  // Width in bytes of data written to destination
+  dst_width : uint;
+
+  dst_stride : uint;
+
+  dst_plane_stride : uint;
+
+  num_planes : uint;
+}
+
+table NNDMATask {
+  /// The NNDMA has a few additional features.
+  /// multiple destination tensors represents copy to several locations
+  /// on device it can be DMA bradcast
+  src : TensorReference;
+  dst : TensorReference;
+
+  /// The NNDMA also has support for compression while transferring.
+  /// This is a simple on/off switch for the feature.
+  compression: bool;
+
+  /// DMA port which the DMA task will execute on
+  port: ubyte;
+
+  set_ord: bool = false;
+
+  set_crit: bool = false;
+
+  descriptor : DMADescriptorReference;
+}

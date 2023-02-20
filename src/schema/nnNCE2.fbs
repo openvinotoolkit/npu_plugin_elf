@@ -1,0 +1,292 @@
+// Copyright (C) 2023 Intel Corporation
+// SPDX-License-Identifier: Apache 2.0
+include "structure.fbs";
+include "memoryManagement.fbs";
+include "software.fbs";
+
+namespace MVCNN;
+
+
+enum NN2Optimization: byte{
+    NONE = 0,
+    // A Convolution that had a spatial kernel (e.g. 3x3) converted to 1x1
+    SQUASHED_CONVOLUTION = 1
+}
+
+enum DPULayerType : byte {
+// Native HW workload operations are:
+// Conv,
+// MaxPool,
+// MaxPoolWithIndex - returns the index of the max value also
+// All other operations are encoded by transformation to these
+// base types, possibly requiring some additional params also.
+    CONV = 0,
+    DWCONV = 1,
+    MAXPOOL = 2,
+    AVEPOOL = 3,
+    FCL = 4,
+    ELTWISE = 5,
+    IDENTITY = 6,
+    CMCONV = 7
+}
+
+enum PPELayerType : uint8 {
+    //  --- Low-Level Instructions ---
+    // These instructions are only for advanced usage.
+
+    // Stores register value to memory
+    STORE,
+    // Loads a register (2 clock cycles)
+    LOAD,
+    // Clears a register
+    CLEAR,
+    // No Operation - Used for delaying (in cases like LOAD).
+    NOOP,
+    // Stops the PPE.
+    HALT,
+
+    //  --- Element-wise Operations ---
+    // Sum of 2 operands
+    ADD,
+    // Subtraction of 2 operands
+    SUB,
+    // Multiplication of 2 operands
+    MULT,
+
+    //  --- Rectification Unit Variants ---
+    // Relu
+    LRELU,
+    // Relu with clamp on positive value to "X"
+    LRELUX,
+    // Leaky Parameterized Relu
+    LPRELU,
+
+    //  --- Threholding & Limits ---
+    // Note: Don't use MAX & MIN - These are Flatbuffer keywords for enum values
+    // Maximum of two operands
+    MAXIMUM,
+    // Minimum of two operands
+    MINIMUM,
+    // Ceiling of one operand
+    CEIL,
+    // Floor of one operand
+    FLOOR,
+
+    //  --- Bitwise Operations ---
+    // Bitwise AND of 2 operations
+    AND,
+    // Bitwise OR of 2 operations
+    OR,
+    // Bitwise XOR of 2 operations
+    XOR,
+    // Bitwise NOT of 1 operations
+    NOT,
+    // Bitwise ABS of 1 operations (Signed Only)
+    ABS,
+    // Bitwise NEG of 1 operations (Signed Only)
+    NEG,
+
+    //  --- Math Operations (i13 scaling required) ---
+    // X^N
+    POW,
+    // Exp(X)
+    EXP,
+    // Sigmoid(X)
+    SIGMOID,
+    // TanH(X)
+    TANH,
+    // SquareRoot(X)
+    SQRT,
+    // 1/SquareRoot(X)
+    RSQRT,
+    // Programmable Math Function
+    FLEXARB
+}
+
+enum MPE_Mode : byte {
+  // The only mode available for FP16 is VECTOR mode.
+  // When set, the size is reduced to 1x4x16 due to hardware limitations.
+  VECTOR = 0,       // 1x16x16 (8bit)
+  MATRIX = 1,       // 4x4x16 (8bit)
+  VECTOR_FP16 = 2,  // 1x4x16 (16bit)
+
+  CUBOID_16x16 = 3,    // NTH = 4, NTW=4, NTK = 4  (16, 4)
+  CUBOID_8x16 = 4,     // NTH = 2, NTW=4, NTK = 8 (8, 8)
+  CUBOID_4x16 = 5,      // NTH = 1, NTW=4, NTK = 16 (4, 16)
+
+  // A NOP workload is just consumed by the SHAVE NN runtime and does nothing.
+  NOP = 6
+}
+
+enum PPERoundingMode : byte {
+  RNE  = 0,
+  RNTZ = 1,
+  RNAZ = 2,
+  RUP  = 3,
+}
+
+enum Permutation : byte {
+  ZXY = 0,
+  ZYX = 1,
+  YZX = 2,
+  YXZ = 3,
+  XZY = 4,
+  XYZ = 5,
+}
+
+table PPEFixedFunction{
+    /// This object describes basic PPE tasks that use
+    /// the fixed functionality of the hardware directly.
+    /// Up to 16 Operations can be performed, any more and
+    /// External reconfiguration is needed.
+
+    Ops: [PPELayerType];
+    Clamp_Low: int = -2147483648;
+    Clamp_High: int = 2147483647;
+    Lrelu_Mult: int32 = 1;
+    Lrelu_Shift: uint32 = 0;
+    // PreLuAlpha: uint8;
+    // PowerAlpha
+    // PowerBeta
+}
+
+table PPETask{
+    // PPE-Specific Fields that only apply once, regardless of how many tasks there are.
+    scale_data: TensorReference;
+
+    // Currently we only have one type of PPE Function here.
+    fixed_function: PPEFixedFunction;
+
+    rounding : PPERoundingMode;
+
+    instruction_list_data: TensorReference;
+
+    fp_scale_data: float = 1.0;
+  
+    fp_prelu_alpha: float = 1.0;
+}
+
+table NCEInvariantFields {
+  dpu_task_type: DPULayerType;
+  ppe_task: PPETask;
+  nnshv_task: [NNTensorTask] (deprecated); // TODO: Only kept for backward compatibility. May be removed
+
+  mpe_frequent_mode: MPE_Mode;
+
+  // Operation Fields
+  kernelH: uint16;
+  kernelW: uint16;
+  kernel_strideH: uint16;
+  kernel_strideW: uint16;
+
+  // This padding is distinct from the padding in the Variant Sections.
+  // It is the operation's kernel padding, as opposed to the workload padding
+  kernel_padLeft: uint16 = 0;
+  kernel_padRight: uint16 = 0;
+  kernel_padTop: uint16 = 0;
+  kernel_padBottom: uint16 = 0;
+
+  parent_input_tensor: TensorReference;
+  parent_output_tensor: TensorReference;
+  parent_weights_tensor: TensorReference;
+
+  // Can get whether network is sparse or dense from these TensorReferences.
+  // (If they have a sparsity_map or not)
+  input_data: TensorReference;
+  output_data: TensorReference;
+  weights_data: TensorReference;
+  // This contains meta information about the weights and other parameters such as bias and scale.
+  weights_table: TensorReference;
+
+  activation_window: TensorReference;
+
+  activation_window_channel_length: int;
+
+  enabled_optimizations: [NN2Optimization];
+
+  modified_kernelH: short = 0 (deprecated);
+  modified_kernelW: short = 0 (deprecated);
+  modified_kernel_strideH: short = 0 (deprecated);
+  modified_kernel_strideW: short = 0 (deprecated);
+
+  odu_offset: int = 0;
+
+  // Provides the offset to the start of the output channels when split over K.
+  out_channel_offset: int = 0;
+
+  // Marks tasks with kernel height greater than 1 and input tensor split over H.
+  is_segmented: bool = false;
+
+  is_continued: bool = false;
+
+  is_superdense: bool = false;
+
+  segment_height: [uint16];
+
+  odu_permutation: Permutation = ZXY;
+
+  cm_sp_pattern: uint16 = 0;
+
+  hwp_cmx_local_slice_base: int32 = 0;
+
+  input_channels_compression: int8 = -1;
+
+  explicit_input_workloads: bool = false;
+}
+
+table NCEVariantFields{
+    /// This object describes the information that any subtasks
+    /// vary on. This is generally resource and position information.
+
+    associated_barriers: BarrierReference;
+
+    mpe_mode: MPE_Mode;
+
+    padLeft: uint16;
+    padRight: uint16;
+    padTop: uint16;
+    padBottom: uint16;
+
+    /// Co-Ordinates for the starting and ending location of this workload.
+    /// Internally, the hardware will increment in steps of MPE_MODE's size
+    /// from "start" until it reaches "end".
+    workload_start_X: uint16;
+    workload_start_Y: uint16;
+    workload_start_Z: uint16;
+    workload_end_X: uint16;
+    workload_end_Y: uint16;
+    workload_end_Z: uint16;
+
+    /// [OX, OY, IC, OC, FX, FY, DC]
+    flex_map_column: [uint8];
+
+    /// [OX, OY, IC, OC, FX, FY]
+    flex_map_array: [uint8];
+
+    /// [XB, XP, YB, YP, ICB, ICP, OCB, OCP, FXB, FXP, FYB, FYP, DCB, DCP]
+    flex_inner: [uint8];
+
+    /// [XP, YP, ICP, OCP, FXP, FYP, DCP]
+    flex_outer: [uint8];
+
+    /// X:0, Y:1, IC:2, OC:3, FX: 4, FY: 5, DC: 6
+    flex_outer_order: [uint8];
+
+    profiling_data: TensorReference;
+
+    workload_id: int32 = -1;
+
+    // These fields are used by the IDU to adjust the source location of the input
+    // tensor.
+    idu_workload_start_x: uint16;
+    idu_workload_start_y: uint16;
+    idu_workload_start_z: uint16;
+    idu_workload_size_x: uint16;
+    idu_workload_size_y: uint16;
+    idu_workload_size_z: uint16;
+}
+
+table NCE2Task {
+  invariant: NCEInvariantFields;
+  variant: [NCEVariantFields];
+}

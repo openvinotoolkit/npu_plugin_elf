@@ -1,0 +1,198 @@
+// Copyright (C) 2023 Intel Corporation
+// SPDX-License-Identifier: Apache 2.0
+namespace MVCNN;
+
+enum MemoryLocation : byte {
+  // Values indicating which type of memory a tensor resides in
+  //
+  NULL = 0, // This is either an invalid tensor, or a conceptual one that cannot be computed on.
+  ProgrammableInput = 1,   // Memory Location retrieved/populated by device api users.
+  ProgrammableOutput = 2,  // Memory Location retrieved/populated by device api users.
+  VPU_DDR_Heap = 3,        // "Scratch Memory" for intermediary and temporal values needed for execution. No guarantee of initalized values.
+  GraphFile = 4,           // Tensor is contained within the "binary_data" section of this graphfile
+  VPU_CMX_NN = 5,          // Fast CMX Memory Connected to the NN Subprocessors
+  VPU_CMX_UPA = 6,         // Fast CMX Memory Connected to the UPA Subprocessors
+  VPU_DDR_BSS = 7,         // Similar "Scratch Memory" to "VPU_DDR_Heap", this explicitly guarantees zero initialization
+  VPU_CSRAM = 8,           // Shared Memory
+  AbsoluteAddr = 9,        // Absolute address
+  MAC_Accumulators = 10,   // MAC accumulators
+  ProfilingOutput = 11,    // Profiling output location retrieved/populated by device api users.
+  GFEmbeddedKernel = 12,   // Tensor is contained within the "kernel_data" section of this graphfile
+  KernelsBuffer = 13,      // An externally provided contiguous buffer of Activation Kernel ELFs
+  ExternalFile = 14,        // Tensor is contained within weights.dat
+}
+
+enum DType : byte {
+  // An enum to be used by a TensorReference Object, so that
+  // it will know how to access data from its buffer.
+  NOT_SET = 0,
+
+  // Floating Point Types
+  FP64 = 1,
+  FP32 = 2,
+  FP16 = 3,
+  FP8 = 4,
+
+  // Unsigned Integers
+  U64 = 5,
+  U32 = 6,
+  U16 = 7,
+  U8 = 8,
+
+  // Signed Integers
+  I64 = 9,
+  I32 = 10,
+  I16 = 11,
+  I8 = 12,
+  I4 = 13,
+  I2 = 14,
+
+  // Additional Sub-Byte Types
+  I4X = 15,
+  BIN = 16,
+  LOG = 17,
+  I2X = 18,
+
+  // Variant Types
+  BFP16 = 19,  // "Brain Floating Point" - https://en.wikipedia.org/wiki/Bfloat16_floating-point_format
+
+  // Unsigned Integers (cont.)
+  U4 = 20,
+}
+
+// Each field is optional
+table BinaryData{
+  underlying_type: DType;
+  length: ulong;
+
+  // This nasty padding is to ensure 64 Byte alignment, along with changes in the Fathom compiler.
+  // Flatbuffers does not support it by default, so we have to work around it.
+  padding: ulong = 0;
+  padding2: ulong = 0;
+  padding3: ulong = 0;
+  padding4: ulong = 0;
+  padding5: ulong = 0;
+  padding6: ulong = 0;
+  padding7: ulong = 0;
+  padding8: ulong = 0;
+  padding9: ulong = 0;
+  padding10: ulong = 0;
+  padding11: ulong = 0;
+  padding12: ulong = 0;
+  padding13: ulong = 0;
+  padding14: ulong = 0;
+  padding15: ulong = 0;
+  padding16: ulong = 0;
+  padding17: ulong = 0;
+  padding18: ulong = 0;
+  padding19: ulong = 0;
+  padding20: ulong = 0;
+  padding21: ulong = 0;
+  padding22: ulong = 0;
+  padding23: ulong = 0;
+  padding24: ulong = 0;
+  padding25: ulong = 0;
+  padding26: ulong = 0;
+  padding27: ulong = 0;
+  padding28: ulong = 0;
+  data: [uint64];
+
+  csram_cacheable: bool;
+}
+
+table KernelData{
+  length: ulong;
+
+  // This nasty padding is to ensure 64 Byte alignment, along with changes in the Fathom compiler.
+  // Flatbuffers does not support it by default, so we have to work around it.
+  padding: ulong = 0;
+  padding2: ulong = 0;
+  padding3: ulong = 0;
+  padding4: ulong = 0;
+  padding5: ulong = 0;
+  padding6: ulong = 0;
+  padding7: ulong = 0;
+  padding8: ulong = 0;
+  padding9: ulong = 0;
+  padding10: ulong = 0;
+  padding11: ulong = 0;
+  padding12: ulong = 0;
+  padding13: ulong = 0;
+  padding14: ulong = 0;
+  padding15: ulong = 0;
+  padding16: ulong = 0;
+  padding17: ulong = 0;
+  padding18: ulong = 0;
+  padding19: ulong = 0;
+  padding20: ulong = 0;
+  padding21: ulong = 0;
+  padding22: ulong = 0;
+  padding23: ulong = 0;
+  padding24: ulong = 0;
+  padding25: ulong = 0;
+  padding26: ulong = 0;
+  padding27: ulong = 0;
+  padding28: ulong = 0;
+  data: [ubyte];
+}
+
+table IndirectDataReference {
+  data_index: ulong = 999999999999999999 ;     // The data we want to access
+  sparsity_index: ulong = 999999999999999999 ;  // Sparsity map associated with that data (optional)
+  storage_element_index: ulong = 999999999999999999 ;  // Parameter sparsity maps tend to have their SEs in the weightTable, so this is mostly used for activations
+  storage_element_size: uint = 0; // Tensor storage element size. In case of dense activations, this field is 0
+}
+
+table TensorReference {
+  /// Information on how to access a Tensor
+
+  name: string; // Field for easier debug
+
+  dimensions: [uint];  // Logical dimensions
+
+  strides: [float];
+
+  leading_offset: uint;   // Amount of bytes to be left before the tensor is located
+  trailing_offset: uint;  // Amount of bytes to be left after the tensor
+
+  data: IndirectDataReference;  // This object contains the information on how to locate the physical tensors.
+
+  locale: MemoryLocation;
+  locale_index: [uint];
+
+  // Datatype information
+  data_dtype: DType;
+
+  // Quantization Meta values for uint8; programmed into PPE
+  // For more details please refer to: https://arxiv.org/abs/1712.05877
+
+  quant_zero: [ubyte];   // The quantized value that represents zero.
+  quant_mult: [ushort];  // The difference between consecutive quantized values
+  quant_shift: [ubyte];  // Used to resize operation accumulator results back to desired range
+  quant_post_shift_right: byte = 0;
+  order: uint64 = 0;
+
+  density_rate: float = 1;
+  swizzling_key: ubyte = 0;
+
+  dimsTensor: TensorReference; // alternative representation for dimensions (U32 1D tensor)
+  stridesTensor: TensorReference; // alternative representation for strides (FP32 1D tensor)
+
+  base_ptrs: [ushort];
+  
+  descriptor: ulong;
+}
+
+table KernelDataReference {
+  name: string;
+
+  locale: MemoryLocation;
+
+  locale_offset: uint32;
+
+  // The offset from the above selected `locale_offset`, i.e. where the .text or .data actually starts inside the ELF referenced by the KDR
+  data_offset: uint32;
+
+  // The size must be forward-declared because it may not be inferrable at parse time with certain locales
+  referenced_data_size: uint32;
+}
