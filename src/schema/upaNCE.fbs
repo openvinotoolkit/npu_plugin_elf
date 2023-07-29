@@ -9,8 +9,6 @@ namespace MVCNN;
 /// Note: This file is not well-defined.
 /// Generally modelled around v2 infrastructure for software layers.
 //
-// TODO: This file can be completely removed and is only present for backward compatibility
-//
 
 union NCE1Layer {
   NCE1Conv,

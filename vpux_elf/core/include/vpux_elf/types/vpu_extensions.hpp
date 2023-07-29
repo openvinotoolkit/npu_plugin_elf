@@ -84,6 +84,26 @@ constexpr Elf_Word R_VPU_DISP28_MULTICAST_OFFSET = 9;
 ///     Where SLICE_LENGTH = 2 * 1024 * 1024
 constexpr Elf_Word R_VPU_DISP4_MULTICAST_OFFSET_CMP = 10;
 
+// Originated from act_offset field of DPU invariant
+// Formula:
+// Dst = (S + A) & LO_21_BIT_MASK
+constexpr Elf_Word R_VPU_LO_21 = 11;
+
+// Originated from weight_start field of DPU variant
+// Formula:
+// Dst += (S + A) & LO_21_BIT_MASK
+constexpr Elf_Word R_VPU_LO_21_SUM = 12;
+
+// Originated from sp_base field of DPU invariant
+// Formula:
+// Dst = to_dpu_multicast_base((S + A) & LO_21_BIT_MASK)
+constexpr Elf_Word R_VPU_LO_21_MULTICAST_BASE = 13;
+
+// Special Reloc for Variant to Invariant link
+// Formula:
+// Dst = ((S + A) & 0x0001'FFFF) >> 5
+constexpr Elf_Word R_VPU_LO_17_RSHIFT_5 = 14;
+
 //
 // Symbol types
 //
@@ -95,7 +115,7 @@ constexpr uint8_t VPU_STT_ENTRY = STT_LOOS;
 //
 
 constexpr Elf_Word VPU_SHT_NETDESC   = 0x8aaaaaaa;
-
+constexpr Elf_Word VPU_SHT_PROF      = 0x8aaaaaab;
 //
 // Section flags
 //
@@ -103,6 +123,7 @@ constexpr Elf_Word VPU_SHT_NETDESC   = 0x8aaaaaaa;
 constexpr Elf_Xword VPU_SHF_JIT             = 0x100000;
 constexpr Elf_Xword VPU_SHF_USERINPUT       = 0x200000;
 constexpr Elf_Xword VPU_SHF_USEROUTPUT      = 0x400000;
+constexpr Elf_Xword VPU_SHF_PROFOUTPUT      = 0x800000;
 constexpr Elf_Xword VPU_SHF_PROC_DPU        = 0x10000000;
 constexpr Elf_Xword VPU_SHF_PROC_DMA        = 0x20000000;
 constexpr Elf_Xword VPU_SHF_PROC_SHAVE      = 0x40000000;
@@ -124,6 +145,7 @@ constexpr Elf_Word VPU_NNRD_SYM_RTM_DMA0 = 3;
 constexpr Elf_Word VPU_NNRD_SYM_RTM_DMA1 = 4;
 constexpr Elf_Word VPU_NNRD_SYM_FIFO_BASE = 5;
 constexpr Elf_Word VPU_NNRD_SYM_BARRIERS_START = 6;
+constexpr Elf_Word VPU_NNRD_SYM_HW_REGISTER = 7;
 
 //
 // VPU constants

@@ -20,7 +20,7 @@ ElfDDRAccessManager::ElfDDRAccessManager(const uint8_t* blob, size_t size, Buffe
 }
 
 const uint8_t* ElfDDRAccessManager::read(const AccessorDescriptor& descriptor) {
-    VPUX_ELF_LOG(LogLevel::DEBUG,"\t offset: %llu, size: %%llu, procFlags: %llu, alignment: %llu", 
+    VPUX_ELF_LOG(LogLevel::DEBUG,"\t offset: %llu, size: %llu, procFlags: %llu, alignment: %llu",
         descriptor.offset, descriptor.size, descriptor.procFlags, descriptor.alignment);
     return m_blob + descriptor.offset;
 }
@@ -30,7 +30,7 @@ const uint8_t* ElfDDRAccessManager::getBlob() const {
 }
 
 
-ElfFSAccessManager::ElfFSAccessManager(const std::string& elfFileName, BufferManager* bufferMgr) 
+ElfFSAccessManager::ElfFSAccessManager(const std::string& elfFileName, BufferManager* bufferMgr)
     : m_elfStream(elfFileName, std::ifstream::binary) {
     VPUX_ELF_THROW_WHEN(!m_elfStream.good(), AccessError, std::string("unable to access binary file " + elfFileName).c_str());
 
@@ -40,7 +40,7 @@ ElfFSAccessManager::ElfFSAccessManager(const std::string& elfFileName, BufferMan
 }
 
 const uint8_t* ElfFSAccessManager::read(const AccessorDescriptor& descriptor) {
-    VPUX_ELF_LOG(LogLevel::DEBUG,"\t offset: %llu, size: %%llu, procFlags: %llu, alignment: %llu", 
+    VPUX_ELF_LOG(LogLevel::DEBUG,"\t offset: %llu, size: %llu, procFlags: %llu, alignment: %llu",
         descriptor.offset, descriptor.size, descriptor.procFlags, descriptor.alignment);
 
     if (descriptor.size > m_size || (descriptor.offset + descriptor.size > m_size)) {

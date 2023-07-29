@@ -81,7 +81,6 @@ table PerfPayloadConfig {
   frcDuration: bool = false;
 
   counters: [ActKernelPerfCounter];
-
   stallFilters : [ActKernelPerfStallFilter];
 }
 
@@ -123,8 +122,6 @@ table ActKernelRuntime {
   shaveStacks: [KernelDataReference];
 
   kernel: ActKernel;
-
   perfConfig: PerfPayloadConfig;
-
   codeScratchBuffer: KernelDataReference;
 }

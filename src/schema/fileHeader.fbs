@@ -149,4 +149,10 @@ table SummaryHeader{
   // for given DPU workload.
   // See hwp_cmx_local_slice_base in NCEInvariantFields and workload_id in NCEVariantFields.
   profiling_data_mode: PerfDataMode = MODE0;
+
+  dma_hwp_enabled : bool = false;
+
+  dma_hwp_base : TensorReference;
+
+  workpoint_output : TensorReference;
 }

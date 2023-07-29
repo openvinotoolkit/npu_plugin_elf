@@ -16,7 +16,7 @@
 #include <vpux_elf/utils/utils.hpp>
 #include <vpux_elf/utils/log.hpp>
 
-#include <vpux_loader/vpux_loader.hpp>
+#include <vpux_elf/accessor.hpp>
 
 #include <string>
 #include <vector>
@@ -63,7 +63,7 @@ public:
 
     class Segment {
     public:
-        Segment(const typename ElfTypes<B>::ProgramHeader* programHeader, const uint8_t* data) 
+        Segment(const typename ElfTypes<B>::ProgramHeader* programHeader, const uint8_t* data)
                 : m_programHeader(programHeader), m_data(data) {}
 
         const typename ElfTypes<B>::ProgramHeader* getHeader() const {
@@ -80,7 +80,7 @@ public:
     };
 
 public:
-    Reader(AccessManager* accessor) 
+    Reader(AccessManager* accessor)
             : m_accessor(accessor) {
         VPUX_ELF_THROW_UNLESS(m_accessor, ArgsError, "Accessor pointer is null");
 
@@ -105,10 +105,12 @@ public:
     }
 
     size_t getSectionsNum() const {
+        VPUX_ELF_THROW_UNLESS(m_elfHeader && (m_elfHeader->e_shnum <= 1000), ArgsError, "Invalid e_shnum");
         return m_elfHeader->e_shnum;
     }
 
     size_t getSegmentsNum() const {
+        VPUX_ELF_THROW_UNLESS(m_elfHeader && (m_elfHeader->e_phnum <= 1000), ArgsError, "Invalid e_phnum");
         return m_elfHeader->e_phnum;
     }
 
@@ -135,7 +137,7 @@ public:
         const auto name = m_sectionHeadersNames + sectionHeader->sh_name;
         auto section = Section(m_accessor, sectionHeader, name);
         m_sectionsCache[index] = section;
-        
+
         return m_sectionsCache[index];
     }
 
