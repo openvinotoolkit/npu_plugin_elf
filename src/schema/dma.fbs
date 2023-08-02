@@ -53,4 +53,8 @@ table NNDMATask {
   set_crit: bool = false;
 
   descriptor : DMADescriptorReference;
+
+  dma_hwp_id: int32 = 0;
+
+  act_compression_size_entry: TensorReference;
 }

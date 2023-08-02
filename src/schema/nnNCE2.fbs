@@ -119,10 +119,10 @@ enum MPE_Mode : byte {
 }
 
 enum PPERoundingMode : byte {
-  RNE  = 0,
-  RNTZ = 1,
-  RNAZ = 2,
-  RUP  = 3,
+  RNE  = 0,  // Round to nearest, ties to even
+  RNTZ = 1,  // Round to nearest, ties toward zero
+  RNAZ = 2,  // Round to nearest, ties away from zero
+  RUP  = 3,  // Round up
 }
 
 enum Permutation : byte {
@@ -157,12 +157,13 @@ table PPETask{
     // Currently we only have one type of PPE Function here.
     fixed_function: PPEFixedFunction;
 
+    // PPE Rounding mode: this instruct the PPE
+    // to apply a specific rounding mode
     rounding : PPERoundingMode;
 
     instruction_list_data: TensorReference;
 
     fp_scale_data: float = 1.0;
-  
     fp_prelu_alpha: float = 1.0;
 }
 
@@ -232,6 +233,8 @@ table NCEInvariantFields {
   input_channels_compression: int8 = -1;
 
   explicit_input_workloads: bool = false;
+
+  depthwise_conv_3x3s1_optimization: bool = false;
 }
 
 table NCEVariantFields{

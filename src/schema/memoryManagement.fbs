@@ -58,6 +58,10 @@ enum DType : byte {
 
   // Unsigned Integers (cont.)
   U4 = 20,
+
+  // FP8 specific types
+  BF8 = 21,  // (E5M2) "Brain Float 8"
+  HF8 = 22,  // (E4M3) "Hybrid Float 8"
 }
 
 // Each field is optional
@@ -157,7 +161,8 @@ table TensorReference {
 
   data: IndirectDataReference;  // This object contains the information on how to locate the physical tensors.
 
-  locale: MemoryLocation;
+  locale: MemoryLocation; // What memory location the tensor resides in.
+
   locale_index: [uint];
 
   // Datatype information
@@ -177,9 +182,7 @@ table TensorReference {
 
   dimsTensor: TensorReference; // alternative representation for dimensions (U32 1D tensor)
   stridesTensor: TensorReference; // alternative representation for strides (FP32 1D tensor)
-
   base_ptrs: [ushort];
-  
   descriptor: ulong;
 }
 

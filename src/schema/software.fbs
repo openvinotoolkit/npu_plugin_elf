@@ -1182,10 +1182,6 @@ union SoftwareLayerParams{
 // Custom Layers: See above.
 //
 table UPALayerTask{
-  // Specify the maximum number of shaves this layer can use. The actually used
-  // number may be less than this value. 0 means there is no restriction and the
-  // count of shaves used is completely up to the runtime. Any value > 0 is
-  // used as the maximum limit, which should be <= 16 for KMB
   maxShaves: ubyte = 0;
 
   // Allows the GF to configure soft layer specific parameters.

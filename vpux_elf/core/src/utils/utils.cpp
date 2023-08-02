@@ -29,3 +29,7 @@ bool utils::checkELFMagic(const unsigned char *elfIdent) {
     }
     return true;
 }
+
+size_t utils::alignUp(size_t size, size_t alignment) {
+    return ((size + alignment - 1) / alignment) * alignment;
+}

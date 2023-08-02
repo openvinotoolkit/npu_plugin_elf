@@ -56,7 +56,7 @@ VPUX_ELF_DEFINE_EXCEPTION(LogicError, ImplausibleState);
         }                                                \
     } while (0);
 
-#define VPUX_ELF_THROW_WHEN(condition, exception, msg) \
+#define VPUX_ELF_THROW_WHEN(condition, exception, msg)   \
     do {                                                 \
         if ((condition)) {                               \
             VPUX_ELF_THROW((exception), (msg));          \
