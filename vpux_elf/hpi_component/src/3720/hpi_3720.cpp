@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache 2.0
 //
 
+// clang-format off
 #include <vpux_elf/utils/utils.hpp>
 #include <vpux_elf/utils/log.hpp>
 #include <vpux_elf/utils/error.hpp>
@@ -10,9 +11,10 @@
 #include <vpux_elf/types/vpu_extensions.hpp>
 #include <vpux_headers/array_ref.hpp>
 #include <hpi_3720.hpp>
-#include <api/vpu_nnrt_api.h>
-#include "api/vpu_cmx_info_37xx.h"
+#include <api/vpu_nnrt_api_37xx.h>
+#include <api/vpu_cmx_info_37xx.h>
 #include <array>
+// clang-format on
 
 namespace elf {
 
@@ -35,9 +37,9 @@ static const std::array<float, nn_public::VPU_SCALABILITY_VALUES_PER_FREQ> byBWS
 // expected ticks (based on FRC @37.5MHz) an inference should take for a given DDR bandwidth.
 static const std::array<uint64_t, nn_public::VPU_SCALABILITY_VALUES_PER_FREQ> byBWTicks({10UL, 12UL, 14UL, 16UL, 18UL});
 
-} // namespace
+}  // namespace
 
-static void setDefaultPerformanceMetrics(nn_public::VpuPerformanceMetrics &metrics) {
+static void setDefaultPerformanceMetrics(nn_public::VpuPerformanceMetrics& metrics) {
     metrics.bw_base = BW_BASE;
     metrics.bw_step = BW_STEP;
     metrics.freq_base = FREQ_BASE;
@@ -103,14 +105,14 @@ ArrayRef<SymbolEntry> HostParsedInference_3720::getSymbolTable(uint8_t index) co
     return ArrayRef<SymbolEntry>(symTab_[index - 1], SPECIAL_SYMTAB_SIZE);
 }
 
-DeviceBuffer HostParsedInference_3720::allocateHostParsedInference(BufferManager *bufferManager) {
-    return bufferManager->allocate(BufferSpecs(
-        DEFAULT_ALIGN, utils::alignUp(sizeof(nn_public::VpuHostParsedInference), DEFAULT_ALIGN), SHF_EXECINSTR));
+BufferSpecs HostParsedInference_3720::getParsedInferenceBufferSpecs() {
+    return BufferSpecs(DEFAULT_ALIGN, utils::alignUp(sizeof(nn_public::VpuHostParsedInference), DEFAULT_ALIGN),
+                       SHF_EXECINSTR);
 }
 
-void HostParsedInference_3720::setHostParsedInference(DeviceBuffer &devBuffer, uint64_t mapped_entry,
+void HostParsedInference_3720::setHostParsedInference(DeviceBuffer& devBuffer, uint64_t mapped_entry,
                                                       ResourceRequirements resReq) {
-    auto hpi = reinterpret_cast<nn_public::VpuHostParsedInference *>(devBuffer.cpu_addr());
+    auto hpi = reinterpret_cast<nn_public::VpuHostParsedInference*>(devBuffer.cpu_addr());
 
     hpi->resource_requirements_ = {};
     hpi->resource_requirements_.nn_slice_count_ = resReq.nn_slice_count_;
@@ -121,4 +123,4 @@ void HostParsedInference_3720::setHostParsedInference(DeviceBuffer &devBuffer, u
     hpi->mapped_.count = 1;
 }
 
-} // namespace elf
+}  // namespace elf

@@ -20,12 +20,12 @@ namespace elf {
 #define ANSI_COLOR_CYAN "\x1b[36m"
 #define ANSI_COLOR_RESET "\x1b[0m"
 
-constexpr static const char logHeader[static_cast<unsigned int>(LogLevel::LAST)][30] = {
+constexpr static const char logHeader[static_cast<unsigned int>(LogLevel::LOG_LAST)][30] = {
         ANSI_COLOR_RED "F:",  ANSI_COLOR_MAGENTA "E:", ANSI_COLOR_YELLOW "W:",
         ANSI_COLOR_CYAN "I:", ANSI_COLOR_BLUE "T:",    ANSI_COLOR_GREEN "D:",
 };
 
-LogLevel Logger::globalLevel = LogLevel::ERROR;
+LogLevel Logger::globalLevel = LogLevel::LOG_ERROR;
 
 Logger::Logger(const LogLevel& unitLevel, const char* unitName): unitLevel(unitLevel), unitName(unitName) {
 }
@@ -59,7 +59,7 @@ void Logger::setUnitLevel(const LogLevel& level) {
 }
 
 void Logger::updateLevelVar(LogLevel& levelVar, const LogLevel& levelVal) {
-    if ((&levelVar != &levelVal) && (LogLevel::LAST > levelVal)) {
+    if ((&levelVar != &levelVal) && (LogLevel::LOG_LAST > levelVal)) {
         levelVar = levelVal;
     }
 }

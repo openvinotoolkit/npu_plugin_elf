@@ -6,12 +6,11 @@
 #pragma once
 
 #include <memory>
+#include <vpux_elf/accessor.hpp>
+#include <vpux_headers/array_ref.hpp>
 #include <vpux_headers/buffer_manager.hpp>
 #include <vpux_headers/device_buffer.hpp>
-#include <vpux_headers/array_ref.hpp>
 #include <vpux_headers/metadata.hpp>
-#include <vpux_elf/accessor.hpp>
-
 
 namespace elf {
 
@@ -19,12 +18,13 @@ class VPUXLoader;
 
 class HostParsedInference final {
 public:
-    HostParsedInference(BufferManager *bufferMgr, AccessManager *accessMgr);
-    HostParsedInference(const HostParsedInference& other) = delete;
-    HostParsedInference(HostParsedInference&& other) = default;
+    HostParsedInference(BufferManager* bufferMgr, AccessManager* accessMgr);
+    HostParsedInference(const HostParsedInference& other);
+    HostParsedInference(HostParsedInference&& other);
     ~HostParsedInference();
 
-    HostParsedInference operator=(const HostParsedInference& rhs) = delete;
+    HostParsedInference& operator=(const HostParsedInference& rhs);
+    HostParsedInference& operator=(HostParsedInference&& rhs);
 
     DeviceBuffer getParsedInference() const;
     ArrayRef<DeviceBuffer> getAllocatedBuffers() const;
@@ -32,16 +32,15 @@ public:
     ArrayRef<DeviceBuffer> getOutputBuffers() const;
     ArrayRef<DeviceBuffer> getProfBuffers() const;
     NetworkMetadata getMetadata();
-    void applyInputOutput(std::vector<DeviceBuffer> &inputs, std::vector<DeviceBuffer> &outputs,
-                          std::vector<DeviceBuffer> &profiling);
-    HostParsedInference clone();
+    void applyInputOutput(std::vector<DeviceBuffer>& inputs, std::vector<DeviceBuffer>& outputs,
+                          std::vector<DeviceBuffer>& profiling);
 
 private:
-    DeviceBuffer parsedInference;
-    BufferManager *bufferManager;
-    AccessManager *accessManager;
+    BufferManager* bufferManager;
+    AccessManager* accessManager;
     ResourceRequirements resRequirements;
     std::unique_ptr<VPUXLoader> loader;
+    std::shared_ptr<AllocatedDeviceBuffer> parsedInference;
 };
 
-} // namespace elf
+}  // namespace elf

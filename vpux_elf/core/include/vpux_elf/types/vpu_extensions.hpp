@@ -86,7 +86,7 @@ constexpr Elf_Word R_VPU_DISP4_MULTICAST_OFFSET_CMP = 10;
 
 // Originated from act_offset field of DPU invariant
 // Formula:
-// Dst = (S + A) & LO_21_BIT_MASK
+// Dst[20:0] = (S + A) & LO_21_BIT_MASK
 constexpr Elf_Word R_VPU_LO_21 = 11;
 
 // Originated from weight_start field of DPU variant
@@ -101,8 +101,13 @@ constexpr Elf_Word R_VPU_LO_21_MULTICAST_BASE = 13;
 
 // Special Reloc for Variant to Invariant link
 // Formula:
-// Dst = ((S + A) & 0x0001'FFFF) >> 5
-constexpr Elf_Word R_VPU_LO_17_RSHIFT_5 = 14;
+// Dst[15:0] = ((S + A) & 0x0001'FFFF) >> 5
+constexpr Elf_Word R_VPU_16_LSB_17_RSHIFT_5 = 14;
+
+// Originated from weight_start field of DPU Variant
+// Formula:
+// Dst = ((S + A) & LO_21_BIT_MASK) >> 4
+constexpr Elf_Word R_VPU_LO_21_RSHIFT_4 = 15;
 
 //
 // Symbol types

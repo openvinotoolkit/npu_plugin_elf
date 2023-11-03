@@ -11,17 +11,24 @@
 
 namespace elf {
 
-ElfDDRAccessManager::ElfDDRAccessManager(const uint8_t* blob, size_t size, BufferManager* bufferMgr) {
+size_t AccessManager::getSize() const {
+    return m_size;
+}
+
+ElfDDRAccessManager::ElfDDRAccessManager(const uint8_t* blob, size_t size) {
     VPUX_ELF_THROW_WHEN(blob == nullptr, ArgsError, "invalid binary file arg");
 
     m_blob = blob;
     m_size = size;
-    m_bufferMgr = bufferMgr;
 }
 
 const uint8_t* ElfDDRAccessManager::read(const AccessorDescriptor& descriptor) {
-    VPUX_ELF_LOG(LogLevel::DEBUG,"\t offset: %llu, size: %llu, procFlags: %llu, alignment: %llu",
-        descriptor.offset, descriptor.size, descriptor.procFlags, descriptor.alignment);
+    VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t offset: %llu, size: %llu, procFlags: %llu, alignment: %llu",
+                 descriptor.offset, descriptor.size, descriptor.procFlags, descriptor.alignment);
+
+    VPUX_ELF_THROW_WHEN(descriptor.offset + descriptor.size > m_size, AccessError,
+                        "Offset out of bounds!");
+
     return m_blob + descriptor.offset;
 }
 
@@ -29,36 +36,32 @@ const uint8_t* ElfDDRAccessManager::getBlob() const {
     return m_blob;
 }
 
-
-ElfFSAccessManager::ElfFSAccessManager(const std::string& elfFileName, BufferManager* bufferMgr)
-    : m_elfStream(elfFileName, std::ifstream::binary) {
-    VPUX_ELF_THROW_WHEN(!m_elfStream.good(), AccessError, std::string("unable to access binary file " + elfFileName).c_str());
+ElfFSAccessManager::ElfFSAccessManager(const std::string& elfFileName)
+        : m_elfStream(elfFileName, std::ifstream::binary) {
+    VPUX_ELF_THROW_WHEN(!m_elfStream.good(), AccessError,
+                        std::string("unable to access binary file " + elfFileName).c_str());
 
     m_elfStream.seekg(0, m_elfStream.end);
     m_size = m_elfStream.tellg();
-    m_bufferMgr = bufferMgr;
+    m_readBuffer.reserve(m_size);
+    VPUX_ELF_THROW_UNLESS(m_readBuffer.capacity() == m_size, AllocError, "Could not allocate memory for ELF file");
 }
 
 const uint8_t* ElfFSAccessManager::read(const AccessorDescriptor& descriptor) {
-    VPUX_ELF_LOG(LogLevel::DEBUG,"\t offset: %llu, size: %llu, procFlags: %llu, alignment: %llu",
-        descriptor.offset, descriptor.size, descriptor.procFlags, descriptor.alignment);
+    VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t offset: %llu, size: %llu, procFlags: %llu, alignment: %llu",
+                 descriptor.offset, descriptor.size, descriptor.procFlags, descriptor.alignment);
 
-    if (descriptor.size > m_size || (descriptor.offset + descriptor.size > m_size)) {
-        return nullptr;
-    }
-
-    const auto buffSpecs = BufferSpecs(descriptor.alignment, descriptor.size, descriptor.procFlags);
-    auto deviceBuffer = m_bufferMgr->allocate(buffSpecs);
-    auto charBuffer = reinterpret_cast<char*>(deviceBuffer.cpu_addr());
+    VPUX_ELF_THROW_WHEN(descriptor.offset + descriptor.size > m_size, AccessError,
+                        "Offset out of bounds!");
 
     m_elfStream.seekg(descriptor.offset, m_elfStream.beg);
-    m_elfStream.read(charBuffer, descriptor.size);
+    m_elfStream.read(&m_readBuffer[descriptor.offset], descriptor.size);
 
-    return reinterpret_cast<const uint8_t*>(charBuffer);
+    return reinterpret_cast<const uint8_t*>(&m_readBuffer[descriptor.offset]);
 }
 
 ElfFSAccessManager::~ElfFSAccessManager() {
     m_elfStream.close();
 }
 
-} // namespace elf
+}  // namespace elf
