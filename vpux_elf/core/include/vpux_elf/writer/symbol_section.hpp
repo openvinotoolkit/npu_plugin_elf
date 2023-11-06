@@ -21,6 +21,14 @@ public:
     Symbol* addSymbolEntry(const std::string& name = {});
     const std::vector<std::unique_ptr<Symbol>>& getSymbols() const;
 
+    void setInfo(uint32_t info) {
+        sh_info = info;
+    }
+
+    uint32_t getInfo() {
+        return sh_info;
+    }
+
 private:
     SymbolSection(const std::string& name, StringSection* namesSection);
 
@@ -29,6 +37,7 @@ private:
 private:
     StringSection* m_namesSection = nullptr;
     std::vector<std::unique_ptr<Symbol>> m_symbols;
+    uint32_t sh_info;
 
     friend Writer;
 };

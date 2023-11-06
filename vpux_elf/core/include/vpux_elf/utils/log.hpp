@@ -17,13 +17,13 @@
 
 namespace elf {
 enum class LogLevel : unsigned int {
-    FATAL = 0U,
-    ERROR,
-    WARN,
-    INFO,
-    TRACE,
-    DEBUG,
-    LAST,
+    LOG_FATAL = 0U,
+    LOG_ERROR,
+    LOG_WARN,
+    LOG_INFO,
+    LOG_TRACE,
+    LOG_DEBUG,
+    LOG_LAST,
 };
 
 class Logger {
@@ -44,7 +44,7 @@ private:
 };
 
 static constexpr char unitName[] = VPUX_ELF_LOG_UNIT_NAME;
-static Logger unitLogger(LogLevel::ERROR, VPUX_ELF_LOG_UNIT_NAME);
+static Logger unitLogger(LogLevel::LOG_ERROR, VPUX_ELF_LOG_UNIT_NAME);
 
 #ifndef VPUX_ELF_LOG
 #define VPUX_ELF_LOG(lvl, ...)                                                                                         \

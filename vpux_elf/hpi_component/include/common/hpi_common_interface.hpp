@@ -6,9 +6,9 @@
 #pragma once
 
 #include <vpux_elf/types/symbol_entry.hpp>
+#include <vpux_headers/array_ref.hpp>
 #include <vpux_headers/buffer_manager.hpp>
 #include <vpux_headers/device_buffer.hpp>
-#include <vpux_headers/array_ref.hpp>
 #include <vpux_headers/metadata.hpp>
 
 namespace elf {
@@ -19,18 +19,14 @@ class HostParsedInferenceCommon {
 public:
     virtual ~HostParsedInferenceCommon() = default;
     virtual ArrayRef<SymbolEntry> getSymbolTable(uint8_t index) const = 0;
+    virtual ArrayRef<std::string> getSymbolNames() const;
 
     /**
-     * Allocate specific architecture host parsed inference
-     *
-     * @param bufferManager the buffer manager used by the caller to allocate
-     * loader and sections. To be deallocated by the caller of this method.
-     *
-     * @return DeviceBuffer to the HostParsedInference allocated using
-     * the structures used for the current architecture.
+     * Get buffer specs of host parsed inference for specific architecture
+     * @return BufferSpecs of the host parsed inference.
      *
      */
-    virtual DeviceBuffer allocateHostParsedInference(BufferManager *bufferManager) = 0;
+    virtual BufferSpecs getParsedInferenceBufferSpecs() = 0;
     /**
      * Set the entry (mapped inference) and the resource requirements
      * for the pre-allocated DeviceBuffer that contains the current architecture
@@ -44,7 +40,7 @@ public:
      *
      * @param resReq resource requirements to be added to the host parsed inference
      */
-    virtual void setHostParsedInference(DeviceBuffer &devBuffer, uint64_t mapped_entry,
+    virtual void setHostParsedInference(DeviceBuffer& devBuffer, uint64_t mapped_entry,
                                         ResourceRequirements resReq) = 0;
 };
-} // namespace elf
+}  // namespace elf

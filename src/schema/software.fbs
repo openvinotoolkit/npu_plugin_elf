@@ -389,6 +389,7 @@ table EltwiseParams{
 table ReduceParams{
   operation: string;
   keep_dims: bool = false;
+  axes_value: [int64];
 }
 
 enum InterpolationMethod : int {

@@ -184,6 +184,8 @@ table TensorReference {
   stridesTensor: TensorReference; // alternative representation for strides (FP32 1D tensor)
   base_ptrs: [ushort];
   descriptor: ulong;
+
+  bit_strides: [uint64];
 }
 
 table KernelDataReference {

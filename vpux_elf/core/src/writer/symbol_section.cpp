@@ -12,7 +12,7 @@
 using namespace elf;
 using namespace elf::writer;
 
-SymbolSection::SymbolSection(const std::string& name, StringSection* namesSection) : Section(name), m_namesSection(namesSection) {
+SymbolSection::SymbolSection(const std::string& name, StringSection* namesSection) : Section(name), m_namesSection(namesSection), sh_info(0) {
     m_header.sh_type = SHT_SYMTAB;
     m_header.sh_entsize = sizeof(SymbolEntry);
     m_fileAlignRequirement = alignof(SymbolEntry);
@@ -36,8 +36,7 @@ void SymbolSection::finalize() {
         return lhs->getBinding() < rhs->getBinding();
     });
 
-    while(m_symbols[m_header.sh_info++]->getBinding() == STB_GLOBAL);
-
+    m_header.sh_info = sh_info;
     m_header.sh_link = static_cast<Elf_Word>(m_namesSection->getIndex());
 
     for (const auto& symbol : m_symbols) {

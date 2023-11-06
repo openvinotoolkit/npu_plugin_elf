@@ -57,6 +57,8 @@ public:
         return *this;
     }
 
+    ~DeviceBuffer() = default;
+
     uint8_t *cpu_addr() { return m_cpuAddr; }
     const uint8_t *cpu_addr() const { return m_cpuAddr; }
     uint64_t vpu_addr() const { return m_vpuAddr; }

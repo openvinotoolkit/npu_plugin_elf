@@ -39,6 +39,8 @@ public:
         }
 
         size_t getEntriesNum() const {
+            VPUX_ELF_THROW_UNLESS(m_header->sh_entsize, SectionError,
+                                    "sh_entsize=0 represents a section that does not hold a table of fixed-size entries. This feature is not suported.")
             return static_cast<size_t>(m_header->sh_size / m_header->sh_entsize);
         }
 
@@ -121,7 +123,10 @@ public:
 
         const auto secHeader = m_sectionHeadersStart + index;
         const auto name = m_sectionHeadersNames + secHeader->sh_name;
-        const auto data = m_accessor->read(AccessorDescriptor{secHeader->sh_offset, secHeader->sh_size, secHeader->sh_flags, secHeader->sh_addralign});
+        const auto data = m_accessor->read(AccessorDescriptor{secHeader->sh_offset,
+                                                              secHeader->sh_type == SHT_NOBITS ? 0 : secHeader->sh_size,
+                                                              secHeader->sh_flags, secHeader->sh_addralign});
+
         auto section = Section(m_accessor, secHeader, name, data);
         m_sectionsCache[index] = section;
 

@@ -7,11 +7,10 @@
 
 #pragma once
 
-#include <string>
-#include <iostream>
 #include <fstream>
+#include <iostream>
+#include <string>
 #include <vpux_headers/buffer_manager.hpp>
-
 
 namespace elf {
 
@@ -39,7 +38,6 @@ public:
 
 protected:
     size_t m_size = 0;
-    BufferManager* m_bufferMgr = nullptr;
 };
 
 /*
@@ -48,7 +46,7 @@ Abstraction class to encapsulate access to ELF binary file from DDR memory.
 
 class ElfDDRAccessManager : public AccessManager {
 public:
-    ElfDDRAccessManager(const uint8_t* blob, size_t size, BufferManager* bufferMgr = nullptr);
+    ElfDDRAccessManager(const uint8_t* blob, size_t size);
 
     const uint8_t* read(const AccessorDescriptor& descriptor) override;
     const uint8_t* getBlob() const;
@@ -59,7 +57,11 @@ private:
 
 class ElfFSAccessManager : public AccessManager {
 public:
-    ElfFSAccessManager(const std::string& elfFileName, BufferManager* bufferMgr);
+    ElfFSAccessManager(const std::string& elfFileName);
+    ElfFSAccessManager(const ElfFSAccessManager&) = delete;
+    ElfFSAccessManager(const ElfFSAccessManager&&) = delete;
+    ElfFSAccessManager& operator=(const ElfFSAccessManager&) = delete;
+    ElfFSAccessManager& operator=(const ElfFSAccessManager&&) = delete;
 
     const uint8_t* read(const AccessorDescriptor& descriptor) override;
 
@@ -67,6 +69,7 @@ public:
 
 private:
     std::ifstream m_elfStream;
+    std::vector<char> m_readBuffer;
 };
 
-} // namespace elf
+}  // namespace elf
