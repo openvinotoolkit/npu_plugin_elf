@@ -76,10 +76,15 @@ table preprocessingInfo {
   algorithm: PreProcessResizeAlgorithm;
 }
 
+// The DPU HWP payload contents are configurable via this enum.
 enum PerfDataMode : byte {
+  // IDU and ODU workload durations and timestamps
   MODE0,
+  // Dense and sparse information of act and wt
   MODE1,
+  // Dense and sparse information of wt and IDU workload duration and timestamp
   MODE2,
+  // Dense and sparse information of act and IDU workload duration and timestamp
   MODE3
 }
 
@@ -128,21 +133,19 @@ table SummaryHeader{
   // The Activation SHAVE Runtime (Management Kernel) to be used for this schedule
   act_kernel_runtime: ActKernelRuntime;
 
+  // The overall profiling output.
   profiling_output: [TensorReference];
 
   // The field stores the info about preprocessing for each input
-  // Used only as meta information for VPUX Plugin
   pre_process_info: [preprocessingInfo];
 
   // The compiler expected performance metrics for this schedule
   performance_metrics: PerformanceMetrics;
 
   // OV 2.0 parameters (inputs) info
-  // Used only as meta information for VPUX Plugin
   ov_parameters: [OVNode];
 
   // OV 2.0 results (outputs) info
-  // Used only as meta information for VPUX Plugin
   ov_results: [OVNode];
 
   // This mode dictates the data payload written by the DPU hardware profilier (DPU WHP)
@@ -150,9 +153,12 @@ table SummaryHeader{
   // See hwp_cmx_local_slice_base in NCEInvariantFields and workload_id in NCEVariantFields.
   profiling_data_mode: PerfDataMode = MODE0;
 
+  // Indicates whether DMA hardware profiling (DMA HWP) is enabled for this inference
   dma_hwp_enabled : bool = false;
 
+  // This tensor represent DMA HWP base to be set by the runtime.
   dma_hwp_base : TensorReference;
 
+  // This optional tensor points to 8 byte location within profiling_output
   workpoint_output : TensorReference;
 }

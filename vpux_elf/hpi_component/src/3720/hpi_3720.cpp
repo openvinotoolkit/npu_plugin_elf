@@ -9,18 +9,18 @@
 #include <vpux_elf/utils/error.hpp>
 #include <vpux_elf/types/section_header.hpp>
 #include <vpux_elf/types/vpu_extensions.hpp>
-#include <vpux_headers/array_ref.hpp>
+#include <vector>
 #include <hpi_3720.hpp>
 #include <api/vpu_nnrt_api_37xx.h>
 #include <api/vpu_cmx_info_37xx.h>
 #include <array>
+#include <cstring>
 // clang-format on
 
 namespace elf {
 
 static constexpr uint8_t N_TABS = nn_public::VPU_MAX_TILES;
 static constexpr size_t SPECIAL_SYMTAB_SIZE = 8;
-static SymbolEntry symTab_[N_TABS][SPECIAL_SYMTAB_SIZE];
 
 namespace {
 // Base of frequency values used in tables (in MHz).
@@ -51,7 +51,9 @@ static void setDefaultPerformanceMetrics(nn_public::VpuPerformanceMetrics& metri
     }
 }
 
-ArrayRef<SymbolEntry> HostParsedInference_3720::getSymbolTable(uint8_t index) const {
+std::vector<SymbolEntry> HostParsedInference_3720::getSymbolTable(uint8_t index) const {
+    SymbolEntry symTab_[N_TABS][SPECIAL_SYMTAB_SIZE];
+
     uint32_t inv_addr[] = {nn_public::METADATA0_STORAGE_ADDR + offsetof(nn_public::VpuMetadataMapSingle, inv_storage),
                            nn_public::METADATA0_STORAGE_ADDR + offsetof(nn_public::VpuMetadataMapDual0, inv_storage)};
 
@@ -102,7 +104,7 @@ ArrayRef<SymbolEntry> HostParsedInference_3720::getSymbolTable(uint8_t index) co
     // Return configuration of index -1, because the configuration list begins at 0
     // 0 - single tile
     // 1 - multi tile
-    return ArrayRef<SymbolEntry>(symTab_[index - 1], SPECIAL_SYMTAB_SIZE);
+    return std::vector<SymbolEntry>(symTab_[index - 1], symTab_[index - 1] + SPECIAL_SYMTAB_SIZE);
 }
 
 BufferSpecs HostParsedInference_3720::getParsedInferenceBufferSpecs() {
@@ -111,16 +113,29 @@ BufferSpecs HostParsedInference_3720::getParsedInferenceBufferSpecs() {
 }
 
 void HostParsedInference_3720::setHostParsedInference(DeviceBuffer& devBuffer, uint64_t mapped_entry,
-                                                      ResourceRequirements resReq) {
+                                                      ResourceRequirements resReq, const uint64_t* perf_metrics) {
     auto hpi = reinterpret_cast<nn_public::VpuHostParsedInference*>(devBuffer.cpu_addr());
 
     hpi->resource_requirements_ = {};
     hpi->resource_requirements_.nn_slice_count_ = resReq.nn_slice_count_;
     hpi->resource_requirements_.nn_barriers_ = resReq.nn_barriers_;
-    setDefaultPerformanceMetrics(hpi->performance_metrics_);
+    if (perf_metrics) {
+        memcpy(static_cast<void*>(&hpi->performance_metrics_), static_cast<const void*>(perf_metrics),
+               sizeof(nn_public::VpuPerformanceMetrics));
+    } else {
+        setDefaultPerformanceMetrics(hpi->performance_metrics_);
+    }
 
     hpi->mapped_.address = mapped_entry;
     hpi->mapped_.count = 1;
+}
+
+elf::Version HostParsedInference_3720::getELFLibABIVersion() const {
+    return {VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH};
+}
+
+elf::Version HostParsedInference_3720::getStaticMIVersion() const {
+    return {VPU_NNRT_37XX_API_VER_MAJOR, VPU_NNRT_37XX_API_VER_MINOR, VPU_NNRT_37XX_API_VER_PATCH};
 }
 
 }  // namespace elf

@@ -83,4 +83,29 @@ struct Elf32_Shdr {
 
 using SectionHeader = Elf64_Shdr;
 
+
+namespace elf_note {
+// Standard GNU Format for SHT_NOTE - ABI Version sections
+struct VersionNote {
+    uint32_t n_namesz;      // size of n_name field
+    uint32_t n_descz;       // size of n_desc field
+    uint32_t n_type;
+    uint8_t n_name[4];
+    uint32_t n_desc[4];
+};
+
+// Standard values for n_type field of NOTE section
+constexpr uint32_t NT_GNU_ABI_TAG = 1;
+constexpr uint32_t NT_GNU_HWCAP = 2;
+constexpr uint32_t NT_GNU_BUILD_ID = 3;
+constexpr uint32_t NT_GNU_GOLD_VERSION = 4;
+constexpr uint32_t NT_GNU_PROPERTY_TYPE_0 = 5;
+
+// Standard values for n_desc[0] field of ABI Version NOTE section
+constexpr uint8_t ELF_NOTE_OS_LINUX = 0;
+constexpr uint8_t ELF_NOTE_OS_GNU = 1;
+constexpr uint8_t ELF_NOTE_OS_SOLARIS2 = 2;
+constexpr uint8_t ELF_NOTE_OS_FREEBSD = 3;
+
+} // namespace elf_note
 } // namespace elf

@@ -11,25 +11,32 @@
 
 #include <vpux_elf/utils/error.hpp>
 
-using namespace elf;
+namespace elf {
+
+namespace utils {
+
 //
-// @breif returning true if the magic is correct
+// @brief returning true if the magic is correct
 // @params pointer to the elf blob memory
 //
-bool utils::checkELFMagic(const unsigned char *elfIdent) {
+bool checkELFMagic(const unsigned char* elfIdent) {
     VPUX_ELF_THROW_UNLESS(elfIdent, ArgsError, "nullptr passed for elf buffer");
 
-
-    if (elfIdent[elf::EI_MAG0] != elf::ELFMAG0 ||
-        elfIdent[elf::EI_MAG1] != elf::ELFMAG1 ||
-        elfIdent[elf::EI_MAG2] != elf::ELFMAG2 ||
-        elfIdent[elf::EI_MAG3] != elf::ELFMAG3) {
+    if (elfIdent[elf::EI_MAG0] != elf::ELFMAG0 || elfIdent[elf::EI_MAG1] != elf::ELFMAG1 ||
+        elfIdent[elf::EI_MAG2] != elf::ELFMAG2 || elfIdent[elf::EI_MAG3] != elf::ELFMAG3) {
         // if the elf magic is not correct return false
         return false;
     }
     return true;
 }
 
-size_t utils::alignUp(size_t size, size_t alignment) {
-    return ((size + alignment - 1) / alignment) * alignment;
+size_t alignUp(size_t size, size_t alignment) {
+    if (size && alignment) {
+        size = ((size + alignment - 1) / alignment) * alignment;
+    }
+    return size;
 }
+
+}  // namespace utils
+
+}  // namespace elf

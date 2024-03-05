@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: Apache 2.0
 //
 
-//
+#ifndef VPUX_ELF_LOG_UNIT_NAME
+#define VPUX_ELF_LOG_UNIT_NAME "Accessor"
+#endif
 
 #include <vpux_elf/accessor.hpp>
 #include <vpux_elf/utils/error.hpp>
@@ -43,8 +45,8 @@ ElfFSAccessManager::ElfFSAccessManager(const std::string& elfFileName)
 
     m_elfStream.seekg(0, m_elfStream.end);
     m_size = m_elfStream.tellg();
-    m_readBuffer.reserve(m_size);
-    VPUX_ELF_THROW_UNLESS(m_readBuffer.capacity() == m_size, AllocError, "Could not allocate memory for ELF file");
+    m_readBuffer.resize(m_size, '\0');
+    VPUX_ELF_THROW_UNLESS(m_readBuffer.size() == m_size, AllocError, "Could not allocate memory for ELF file");
 }
 
 const uint8_t* ElfFSAccessManager::read(const AccessorDescriptor& descriptor) {

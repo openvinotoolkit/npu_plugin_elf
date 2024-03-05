@@ -161,17 +161,26 @@ table PPETask{
     // to apply a specific rounding mode
     rounding : PPERoundingMode;
 
+    // Contains 32-bit PPE opcodes in a contiguous, 4-byte aligned memory space.
     instruction_list_data: TensorReference;
 
+    // Used for global, per tensor PPE setup.
     fp_scale_data: float = 1.0;
+
+    // Used for global, per tensor PPE setup.
     fp_prelu_alpha: float = 1.0;
 }
 
 table NCEInvariantFields {
+  /// This object describes the common information that any subtasks
+  /// share. This is generally layer information.
   dpu_task_type: DPULayerType;
   ppe_task: PPETask;
-  nnshv_task: [NNTensorTask] (deprecated); // TODO: Only kept for backward compatibility. May be removed
+  nnshv_task: [NNTensorTask] (deprecated);
 
+  // MPE_Mode is also present in variant fields.
+  // This field tells the runtime what is the main MPE_mode used in this layer
+  // so that it will only write when conflicting.
   mpe_frequent_mode: MPE_Mode;
 
   // Operation Fields
@@ -187,6 +196,9 @@ table NCEInvariantFields {
   kernel_padTop: uint16 = 0;
   kernel_padBottom: uint16 = 0;
 
+  // When Splitting over "H" or "K", in the case of multicluster,
+  // we need to preserve fields from the original data so that
+  // the runtime knows where it is currently processing.
   parent_input_tensor: TensorReference;
   parent_output_tensor: TensorReference;
   parent_weights_tensor: TensorReference;
@@ -201,6 +213,8 @@ table NCEInvariantFields {
 
   activation_window: TensorReference;
 
+  // This value is a temporary hack to give the original length
+  // of each activation window per channel before it is aligned to 16.
   activation_window_channel_length: int;
 
   enabled_optimizations: [NN2Optimization];
@@ -210,6 +224,13 @@ table NCEInvariantFields {
   modified_kernel_strideH: short = 0 (deprecated);
   modified_kernel_strideW: short = 0 (deprecated);
 
+  // ODU add this offset to SE pointer when generate the output tensor.
+  // This is necessary for sparse eltwise as well as a proper management
+  // activation spilling.
+  // For Eltwise the same base offset applies for both input tensors
+  // Therefore we need to add an additional offset to the context address
+  // in one of the layers inputting to the eltwise layer so that we can tell
+  // the hardware to generate the correct data_ptr to account for this.
   odu_offset: int = 0;
 
   // Provides the offset to the start of the output channels when split over K.
@@ -218,23 +239,35 @@ table NCEInvariantFields {
   // Marks tasks with kernel height greater than 1 and input tensor split over H.
   is_segmented: bool = false;
 
+  // If true, this is a request to use the hardware's continued convolution
+  // support: the output of the convolution is saved in the MAC accumulators
+  // (instead of being flushed to the PPE and ODU), and is reused by the next
+  // convolution, which is guaranted to be the next task in the task list.
   is_continued: bool = false;
 
+  // Marks tasks to be done in super dense mode.
   is_superdense: bool = false;
 
+  /// in case of segmentation the DPU needs to know how many lines are in
+  /// neighbouring clusters
   segment_height: [uint16];
 
+  /// Configures a permutation to apply to the output.
   odu_permutation: Permutation = ZXY;
 
+  /// Configures how many input channels in channel-major mode should be used
+  /// to generate output (how many of all padded input channels are real)
   cm_sp_pattern: uint16 = 0;
 
+  /// It sets the local CMX slice base address from which all variants of this
+  /// invariant will write their HWP data to by offsets of workload_id
   hwp_cmx_local_slice_base: int32 = 0;
 
+  /// This field enables compressed input layer mode.
   input_channels_compression: int8 = -1;
 
+  // Marks NCE tasks which should use serialized explicit input workload start/size.
   explicit_input_workloads: bool = false;
-
-  depthwise_conv_3x3s1_optimization: bool = false;
 }
 
 table NCEVariantFields{
@@ -260,23 +293,15 @@ table NCEVariantFields{
     workload_end_Y: uint16;
     workload_end_Z: uint16;
 
-    /// [OX, OY, IC, OC, FX, FY, DC]
-    flex_map_column: [uint8];
-
-    /// [OX, OY, IC, OC, FX, FY]
-    flex_map_array: [uint8];
-
-    /// [XB, XP, YB, YP, ICB, ICP, OCB, OCP, FXB, FXP, FYB, FYP, DCB, DCP]
-    flex_inner: [uint8];
-
-    /// [XP, YP, ICP, OCP, FXP, FYP, DCP]
-    flex_outer: [uint8];
-
     /// X:0, Y:1, IC:2, OC:3, FX: 4, FY: 5, DC: 6
     flex_outer_order: [uint8];
 
+    // If present, the location to which profiling data for this variant
+    // should be written. This field is valid only for NPU 3700.
     profiling_data: TensorReference;
 
+    // This represents the offset from the start of the local CMX work
+    // area in multiples of DPU perf payload packet size.
     workload_id: int32 = -1;
 
     // These fields are used by the IDU to adjust the source location of the input
@@ -290,6 +315,9 @@ table NCEVariantFields{
 }
 
 table NCE2Task {
+  /// This object describes an entire network layer that will be operated
+  /// on by the NCE's DPUs, PPEs and NNSHV Assist Library.
+
   invariant: NCEInvariantFields;
   variant: [NCEVariantFields];
 }

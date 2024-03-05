@@ -22,6 +22,8 @@ enum DMAEngine : byte{
 
 // Flatbuffers does not compile the full name, so shorted to Mem
 enum PhysicalMem : byte {
+    // Different to MemoryLocation in that this represents the actual hardware
+    // and MemoryLoc ation represents conceptual addressing.
     NULL = 0, // This is either an invalid location, or a conceptual one that cannot be computed on.
     DDR = 1,
     UPA_CMX = 2,

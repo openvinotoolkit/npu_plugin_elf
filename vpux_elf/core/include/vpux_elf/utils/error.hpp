@@ -10,6 +10,7 @@
 #include <assert.h>
 #include <cassert>
 #include <stdexcept>
+#include <vpux_elf/types/elf_structs.hpp>
 
 namespace elf {
 
@@ -44,23 +45,23 @@ VPUX_ELF_DEFINE_EXCEPTION(LogicError, ArgsError);
 VPUX_ELF_DEFINE_EXCEPTION(LogicError, ImplausibleState);
 
 #ifdef VPUX_ELF_NOEXCEPT
-#define VPUX_ELF_THROW(exception, msg) assert(!(msg))
+#define VPUX_ELF_THROW(exception, msg, ...) assert(!(msg))
 #else
-#define VPUX_ELF_THROW(exception, msg) throw(exception(msg))
+#define VPUX_ELF_THROW(exception, msg, ...) throw(exception(msg, ##__VA_ARGS__))
 #endif
 
-#define VPUX_ELF_THROW_UNLESS(condition, exception, msg) \
-    do {                                                 \
-        if (!(condition)) {                              \
-            VPUX_ELF_THROW((exception), (msg));          \
-        }                                                \
+#define VPUX_ELF_THROW_UNLESS(condition, exception, msg, ...)  \
+    do {                                                       \
+        if (!(condition)) {                                    \
+            VPUX_ELF_THROW(exception, (msg), ##__VA_ARGS__); \
+        }                                                      \
     } while (0);
 
-#define VPUX_ELF_THROW_WHEN(condition, exception, msg)   \
-    do {                                                 \
-        if ((condition)) {                               \
-            VPUX_ELF_THROW((exception), (msg));          \
-        }                                                \
+#define VPUX_ELF_THROW_WHEN(condition, exception, msg, ...)    \
+    do {                                                       \
+        if ((condition)) {                                     \
+            VPUX_ELF_THROW(exception, (msg), ##__VA_ARGS__); \
+        }                                                      \
     } while (0);
 
 }  // namespace elf

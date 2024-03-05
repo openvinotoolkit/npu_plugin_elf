@@ -84,31 +84,6 @@ constexpr Elf_Word R_VPU_DISP28_MULTICAST_OFFSET = 9;
 ///     Where SLICE_LENGTH = 2 * 1024 * 1024
 constexpr Elf_Word R_VPU_DISP4_MULTICAST_OFFSET_CMP = 10;
 
-// Originated from act_offset field of DPU invariant
-// Formula:
-// Dst[20:0] = (S + A) & LO_21_BIT_MASK
-constexpr Elf_Word R_VPU_LO_21 = 11;
-
-// Originated from weight_start field of DPU variant
-// Formula:
-// Dst += (S + A) & LO_21_BIT_MASK
-constexpr Elf_Word R_VPU_LO_21_SUM = 12;
-
-// Originated from sp_base field of DPU invariant
-// Formula:
-// Dst = to_dpu_multicast_base((S + A) & LO_21_BIT_MASK)
-constexpr Elf_Word R_VPU_LO_21_MULTICAST_BASE = 13;
-
-// Special Reloc for Variant to Invariant link
-// Formula:
-// Dst[15:0] = ((S + A) & 0x0001'FFFF) >> 5
-constexpr Elf_Word R_VPU_16_LSB_17_RSHIFT_5 = 14;
-
-// Originated from weight_start field of DPU Variant
-// Formula:
-// Dst = ((S + A) & LO_21_BIT_MASK) >> 4
-constexpr Elf_Word R_VPU_LO_21_RSHIFT_4 = 15;
-
 //
 // Symbol types
 //
@@ -119,8 +94,11 @@ constexpr uint8_t VPU_STT_ENTRY = STT_LOOS;
 // Section types
 //
 
-constexpr Elf_Word VPU_SHT_NETDESC   = 0x8aaaaaaa;
-constexpr Elf_Word VPU_SHT_PROF      = 0x8aaaaaab;
+constexpr Elf_Word VPU_SHT_NETDESC        = 0x8aaaaaaa;
+constexpr Elf_Word VPU_SHT_PROF           = 0x8aaaaaab;
+constexpr Elf_Word VPU_SHT_PERF_METRICS   = 0x8aaaaaae;
+constexpr Elf_Word VPU_SHT_PLATFORM_INFO  = 0x8aaaaaaf;
+
 //
 // Section flags
 //
@@ -159,4 +137,8 @@ constexpr Elf_Word VPU_NNRD_SYM_HW_REGISTER = 7;
 const Elf_Word VPU_SH_INFO_FOR_VPU = 0;
 const Elf_Word VPU_SH_ADDR_ALIGN_FOR_VPU = 64;
 
+namespace elf_note {
+// Custom values for n_type field of SHT_NOTE section
+constexpr uint32_t NT_NPU_MPI_VERSION = 0xA000;
+}
 }

@@ -66,6 +66,13 @@ enum DType : byte {
 
 // Each field is optional
 table BinaryData{
+  // There can be many BinaryDatas as part of the graphfile.
+  // Together they contain all known Tensors that are parameters
+  // to the serialized network.
+
+  // FlatBuffers internally align to the size of the datatype.
+  // As there are several things that perform better (or perform at all)
+  // when aligned to 64bit, we can pack values inside many unsigned longs.
   underlying_type: DType;
   length: ulong;
 
@@ -101,10 +108,19 @@ table BinaryData{
   padding28: ulong = 0;
   data: [uint64];
 
+  // Marks tensors which should be copied to CSRAM
+  // Only such tensors can be copied which will be read back by NN DMA
+  // e.g. weights/parameters of SW layers read by UPA shaves/UPA DMA have to remain uncached
   csram_cacheable: bool;
 }
 
 table KernelData{
+  // KernelData exists as a separately indexed collection of activation kernels for a
+  // given inference. They can represent any kernel related buffer such as code or invocation data.
+  // There can be many KernelDatas as part of the graphfile.
+
+
+  // FlatBuffers internally align to the size of the datatype.
   length: ulong;
 
   // This nasty padding is to ensure 64 Byte alignment, along with changes in the Fathom compiler.
@@ -141,6 +157,8 @@ table KernelData{
 }
 
 table IndirectDataReference {
+  /// Index/Offsets from the start of a memory location (see MemoryLocation)
+
   data_index: ulong = 999999999999999999 ;     // The data we want to access
   sparsity_index: ulong = 999999999999999999 ;  // Sparsity map associated with that data (optional)
   storage_element_index: ulong = 999999999999999999 ;  // Parameter sparsity maps tend to have their SEs in the weightTable, so this is mostly used for activations
@@ -154,7 +172,10 @@ table TensorReference {
 
   dimensions: [uint];  // Logical dimensions
 
-  strides: [float];
+  strides: [float];    // The field will be deprecated, please use bit_strides instead.
+                       // The first value of strides is always the stride in bytes of a single element. This is usually the size of the datatype.
+                       // The subsequent values should be provided in the same order as the dimensions are specified.
+                       // "Order" can then be derived from this array.
 
   leading_offset: uint;   // Amount of bytes to be left before the tensor is located
   trailing_offset: uint;  // Amount of bytes to be left after the tensor
@@ -163,6 +184,7 @@ table TensorReference {
 
   locale: MemoryLocation; // What memory location the tensor resides in.
 
+  // When multiple copies of a memory location exist (e.g. NN CMX Slices). This value is an index to the ones desires.
   locale_index: [uint];
 
   // Datatype information
@@ -171,28 +193,55 @@ table TensorReference {
   // Quantization Meta values for uint8; programmed into PPE
   // For more details please refer to: https://arxiv.org/abs/1712.05877
 
+  // Short summary:
+  // Quantization formula -> real_value = scale * (quantized_value - zero_point)
+  // Hardware scale multiplier -> M = input_scale * weight_scale / output_scale
+  // M should be floating point but it is memorized as two integers M0 and shift such that
+  // x * M =~ ((x * M0) >> shift)
+  // Values are stored as vector for each tensor because they can be on a per channel basis.
+
   quant_zero: [ubyte];   // The quantized value that represents zero.
   quant_mult: [ushort];  // The difference between consecutive quantized values
   quant_shift: [ubyte];  // Used to resize operation accumulator results back to desired range
   quant_post_shift_right: byte = 0;
-  order: uint64 = 0;
+  order: uint64 = 0;    // Desribes permutation of logical dimensions to memory positions.
 
+  // Density rate of the tensor [0-> fully sparse, 1-> fully dense]
+  // This field is used only in simulation
   density_rate: float = 1;
+
+  // Enable the swizzling key for the tensor.
   swizzling_key: ubyte = 0;
 
+  // Alternative tensor shape representation for network with 'dynamic' data/behavior.
   dimsTensor: TensorReference; // alternative representation for dimensions (U32 1D tensor)
   stridesTensor: TensorReference; // alternative representation for strides (FP32 1D tensor)
+
+  // Configuration for the IDU base_offset or ODU base_ptr registers.
   base_ptrs: [ushort];
+
+  // If descriptor is set then it is an address of an indirect directml data descriptor.
   descriptor: ulong;
 
-  bit_strides: [uint64];
+  bit_strides: [uint64];  // The effective bit width of float is smaller than uint64 and the int datatype can't effectively represent datatype.
+                          // smaller than one byte, such as int4 and int1.
 }
 
 table KernelDataReference {
+  // Information on how to access a Activation SHAVE Kernel
+  // All underlying DTypes are always assumed to be U8
+
+  // Field for easier debug
+  // * Not to be confused with the layer name *
+  // e.g This field may contain the kernel's function name "SoftMax",
+  // rather than an arbitrary compiler name such as "classifier/softmax#12"
   name: string;
 
+  // What memory location the ActKernel binary data resides in.
   locale: MemoryLocation;
 
+  // When `locale = GFEmbeddedKernel`, this value indexes which KernelData is being referenced from GraphFile:kernel_data.
+  // When `locale != GFEmbeddedKernel`, the offset from the start of a KernelsBuffer or AbsoluteAddr
   locale_offset: uint32;
 
   // The offset from the above selected `locale_offset`, i.e. where the .text or .data actually starts inside the ELF referenced by the KDR
