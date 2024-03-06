@@ -5,11 +5,14 @@
 
 #pragma once
 
+#include <array>
+#include <vector>
+#include <vpux_elf/types/elf_structs.hpp>
 #include <vpux_elf/types/symbol_entry.hpp>
-#include <vpux_headers/array_ref.hpp>
 #include <vpux_headers/buffer_manager.hpp>
 #include <vpux_headers/device_buffer.hpp>
 #include <vpux_headers/metadata.hpp>
+#include <vpux_elf/utils/version.hpp>
 
 namespace elf {
 
@@ -18,8 +21,8 @@ constexpr auto DEFAULT_ALIGN = 64;
 class HostParsedInferenceCommon {
 public:
     virtual ~HostParsedInferenceCommon() = default;
-    virtual ArrayRef<SymbolEntry> getSymbolTable(uint8_t index) const = 0;
-    virtual ArrayRef<std::string> getSymbolNames() const;
+    virtual std::vector<SymbolEntry> getSymbolTable(uint8_t index) const = 0;
+    virtual std::vector<elf::Elf_Word> getSymbolSectionTypes() const;
 
     /**
      * Get buffer specs of host parsed inference for specific architecture
@@ -40,7 +43,16 @@ public:
      *
      * @param resReq resource requirements to be added to the host parsed inference
      */
-    virtual void setHostParsedInference(DeviceBuffer& devBuffer, uint64_t mapped_entry,
-                                        ResourceRequirements resReq) = 0;
+    virtual void setHostParsedInference(DeviceBuffer& devBuffer, uint64_t mapped_entry, ResourceRequirements resReq,
+                                        const uint64_t* perf_metrics) = 0;
+    /**
+     * Get ABI Version of current HPI/Loader
+     */
+    virtual elf::Version getELFLibABIVersion() const = 0;
+
+    /**
+     * Get Mapped inference version
+     */
+    virtual elf::Version getStaticMIVersion() const = 0;
 };
 }  // namespace elf

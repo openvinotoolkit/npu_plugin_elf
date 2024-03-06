@@ -1183,6 +1183,7 @@ union SoftwareLayerParams{
 // Custom Layers: See above.
 //
 table UPALayerTask{
+  // Specify the maximum number of shaves this layer can use.
   maxShaves: ubyte = 0;
 
   // Allows the GF to configure soft layer specific parameters.

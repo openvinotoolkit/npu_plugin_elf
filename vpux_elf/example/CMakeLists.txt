@@ -8,5 +8,5 @@ foreach(TARGET_NAME ${EXAMPLES})
     add_executable(${TARGET_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/${TARGET_NAME}/${TARGET_NAME}.cpp)
 
     enable_warnings_as_errors(${TARGET_NAME} WIN_STRICT)
-    target_link_libraries(${TARGET_NAME} vpux_elf)
+    target_link_libraries(${TARGET_NAME} npu_elf)
 endforeach()

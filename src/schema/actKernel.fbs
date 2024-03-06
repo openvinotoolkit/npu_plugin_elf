@@ -72,6 +72,7 @@ enum ActKernelPerfStallFilter : byte {
     INST_BUFF_LOW_DISC = 26
 }
 
+/// Performance Counter configuration for all associated Activation SHAVEs.
 table PerfPayloadConfig {
   /// Use the Free Running Counter
   /// 64b
@@ -81,33 +82,57 @@ table PerfPayloadConfig {
   frcDuration: bool = false;
 
   counters: [ActKernelPerfCounter];
+
+  /// Only applicable if STALL_CYCLE_CNT_EN is set as one of the counter targets in `counters`.
+  /// This setting is ignored otherwise.
   stallFilters : [ActKernelPerfStallFilter];
 }
 
 table ActKernel {
+  /// This object describes the activation kernel itself. It specifies the size and entry
+  /// of the kernel binary, the size of the `.data` section of all associated invocations,
+  /// and a type specifier intended for future extensibility.
+
+  /// A type identifier allowing for the FW to do special handling of work items
   type: ActKernelType;
 
+  /// the a monolithic kernel's .text section
   kernelText: KernelDataReference;
 
+  /// the entry point of the kernel given as an offset from the start of the
+  /// kernelText's address
   kernelEntry: uint32;
 
+  /// This buffer represents the kernel implementation specific input arguments that are
+  /// unique to a particular Activation kernel implementation.
   globalArgs: KernelDataReference;
 
+  // Fields for Uniquely identifying a Kernel (for version tracking)
   kernelIdentifier: string;
   kernelVersionMajor: uint16;
   kernelVersionMinor: uint16;
 }
 
 table ActKernelInvocation{
+  /// This object exists to differentiate invocations of the kernel range.
+
+  /// ActKernelTask and associated Kernel are not bound by barriers
   associatedBarriers: BarrierReference;
 
+  /// the monolithic kernel's .data section. There is a unique data section per-invocation
   dataSection: KernelDataReference;
 
+  /// This buffer represents the generic input arguments that all Activation kernels
+  /// share.
   invocationArgs: KernelDataReference;
 
+  /// In short; this parameter determines _if_ performance data is captured this Invocation
   perfPayload: KernelDataReference;
 
+  /// The compiler needs to specify the tile directly.
   tile: uint32;
+
+  /// Adding fields to the schema such that we can use the tensor dimensions for performance predictions.
   inputTensors: [TensorReference];
   outputTensors: [TensorReference];
 }
@@ -119,9 +144,12 @@ table ActKernelTask {
 }
 
 table ActKernelRuntime {
+  /// The schedule allocated space used for the runtime stack(s).
   shaveStacks: [KernelDataReference];
 
   kernel: ActKernel;
+
   perfConfig: PerfPayloadConfig;
+
   codeScratchBuffer: KernelDataReference;
 }

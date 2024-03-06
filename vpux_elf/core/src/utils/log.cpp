@@ -25,7 +25,7 @@ constexpr static const char logHeader[static_cast<unsigned int>(LogLevel::LOG_LA
         ANSI_COLOR_CYAN "I:", ANSI_COLOR_BLUE "T:",    ANSI_COLOR_GREEN "D:",
 };
 
-LogLevel Logger::globalLevel = LogLevel::LOG_ERROR;
+LogLevel Logger::globalLevel = LogLevel::LOG_WARN;
 
 Logger::Logger(const LogLevel& unitLevel, const char* unitName): unitLevel(unitLevel), unitName(unitName) {
 }

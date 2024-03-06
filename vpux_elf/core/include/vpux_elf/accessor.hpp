@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <vector>
 #include <vpux_headers/buffer_manager.hpp>
 
 namespace elf {
