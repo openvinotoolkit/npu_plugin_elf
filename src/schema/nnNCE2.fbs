@@ -171,6 +171,30 @@ table PPETask{
     fp_prelu_alpha: float = 1.0;
 }
 
+table HaloRegion{
+    // Describes the halo region to be written to remote clusters
+
+    // Halo region boundary
+    x_start: uint16 = 0;
+    x_end: uint16 = 0;
+    y_start: uint16 = 0;
+    y_end: uint16 = 0;
+    z_start: uint16 = 0;
+    z_end: uint16 = 0;
+
+    // Relative offset of the halo region within the target cluster
+    target_offset: int = 0;
+
+    // Target cluster index
+    target_clusters: [uint8];
+
+    // Relative sparsity offset
+    sparsity_offset: int = 0;
+
+    // Target tensor width
+    target_width: uint16 = 0;
+}
+
 table NCEInvariantFields {
   /// This object describes the common information that any subtasks
   /// share. This is generally layer information.
@@ -268,6 +292,9 @@ table NCEInvariantFields {
 
   // Marks NCE tasks which should use serialized explicit input workload start/size.
   explicit_input_workloads: bool = false;
+
+  // Enables NPU 4000 HW optimization for DW conv cases of kernel size 3 and stride 1
+  depthwise_conv_3x3s1_optimization: bool = false;
 }
 
 table NCEVariantFields{
@@ -293,12 +320,28 @@ table NCEVariantFields{
     workload_end_Y: uint16;
     workload_end_Z: uint16;
 
+    /// FlexNN dataflow description for NPU 4000
+    /// [OX, OY, IC, OC, FX, FY, DC]
+    flex_map_column: [uint8];
+
+    /// [OX, OY, IC, OC, FX, FY]
+    flex_map_array: [uint8];
+
+    /// [XB, XP, YB, YP, ICB, ICP, OCB, OCP, FXB, FXP, FYB, FYP, DCB, DCP]
+    flex_inner: [uint8];
+
+    /// [XP, YP, ICP, OCP, FXP, FYP, DCP]
+    flex_outer: [uint8];
+
     /// X:0, Y:1, IC:2, OC:3, FX: 4, FY: 5, DC: 6
     flex_outer_order: [uint8];
 
     // If present, the location to which profiling data for this variant
     // should be written. This field is valid only for NPU 3700.
     profiling_data: TensorReference;
+
+    // List of Halo Regions
+    halo_regions: [HaloRegion];
 
     // This represents the offset from the start of the local CMX work
     // area in multiples of DPU perf payload packet size.

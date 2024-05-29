@@ -19,7 +19,8 @@ namespace platform {
 enum class ArchKind : uint64_t {
     UNKNOWN = 0,
     VPUX30XX = 1,
-    VPUX37XX = 3
+    VPUX37XX = 3,
+    VPUX40XX = 4,
 };
 
 const std::unordered_map<std::string, elf::platform::ArchKind>& getKnownArchitectures();

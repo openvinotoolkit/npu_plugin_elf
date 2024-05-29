@@ -85,6 +85,78 @@ constexpr Elf_Word R_VPU_DISP28_MULTICAST_OFFSET = 9;
 constexpr Elf_Word R_VPU_DISP4_MULTICAST_OFFSET_CMP = 10;
 
 //
+// NPU 4000 specific DPU relocs
+//
+
+// Originated from act_offset field of DPU invariant
+// Formula:
+// Dst[20:0] = (S + A) & LO_21_BIT_MASK
+constexpr Elf_Word R_VPU_LO_21 = 11;
+
+// Originated from weight_start field of DPU variant
+// Formula:
+// Dst += (S + A) & LO_21_BIT_MASK
+constexpr Elf_Word R_VPU_LO_21_SUM = 12;
+
+// Originated from sp_base field of DPU invariant
+// Formula:
+// Dst = to_dpu_multicast_base((S + A) & LO_21_BIT_MASK)
+constexpr Elf_Word R_VPU_LO_21_MULTICAST_BASE = 13;
+
+// Special Reloc for Variant to Invariant link
+// Formula:
+// Dst[15:0] = ((S + A) & 0x0001'FFFF) >> 5
+constexpr Elf_Word R_VPU_16_LSB_17_RSHIFT_5 = 14;
+
+// Originated from weight_start field of DPU Variant
+// Formula:
+// Dst = ((S + A) & LO_21_BIT_MASK) >> 4
+constexpr Elf_Word R_VPU_LO_21_RSHIFT_4 = 15;
+
+// Originated from hwp_cmx_mem_addr field of DPU Invariant
+// Formula:
+// Dst = ((S + A) & ~B21_B26_MASK) >> 5
+constexpr Elf_Word R_VPU_CMX_LOCAL_RSHIFT_5 = 16;
+
+// Used for tile select relocations
+// Formula:
+// Dst |= (S + A) & ~B21_B26_MASK
+constexpr Elf_Word R_VPU_32_BIT_OR_B21_B26_UNSET = 17;
+
+// Used for tile select relocations
+// Formula:
+// Dst |= (S + A) & ~B21_B26_MASK
+constexpr Elf_Word R_VPU_64_BIT_OR_B21_B26_UNSET = 18;
+
+// Special Reloc for Variant to Invariant link
+// Formula:
+// Dst[13:15] = (((S + A) & 0x0001'FFFF) >> 5) << 16
+constexpr Elf_Word R_VPU_16_LSB_17_RSHIFT_5_LSHIFT_16 = 19;
+
+// Special Reloc for preemtion work around
+// Formula:
+// Dst[31:17] = ((((S + A) & 0x0001'FFFF) >> 5) & ~1) << 16
+// Dst[14] =    ((((S + A) & 0x0001'FFFF) >> 5) &  1) << 14
+constexpr Elf_Word R_VPU_16_LSB_17_RSHIFT_5_LSHIFT_CUSTOM = 20;
+
+// Used for tile select relocations of 16 bit for M2I HWP address (high part)
+// Formula:
+// Dst |= ((S + A) & ~B21_B26_MASK) >> 16
+constexpr Elf_Word R_VPU_32_BIT_OR_B21_B26_UNSET_HIGH_16 = 21;
+
+// Used for tile select relocations of 16 bit for M2I HWP address (low part)
+// Formula:
+// Dst |= ((S + A) & ~B21_B26_MASK) && 0xFFFF
+constexpr Elf_Word R_VPU_32_BIT_OR_B21_B26_UNSET_LOW_16 = 22;
+
+// Used for tile select relocations of 27 bit for DMA Accelerator: bitmapBaseAddr[30:4] (16 byte aligned)
+// Formula:
+// patchAddrUnsetTile = (S + A) & ~0xE0'0000                  - clear NPU5 tile bits
+// patchAddr = (patchAddrUnsetTile >> 4) & (0x7FFF'FFFF >> 4) - only [30:4]
+// Dst |= patchAddr << 37;                                    - set [64:37]
+constexpr Elf_Word R_VPU_HIGH_27_BIT_OR = 23;
+
+//
 // Symbol types
 //
 
@@ -96,6 +168,8 @@ constexpr uint8_t VPU_STT_ENTRY = STT_LOOS;
 
 constexpr Elf_Word VPU_SHT_NETDESC        = 0x8aaaaaaa;
 constexpr Elf_Word VPU_SHT_PROF           = 0x8aaaaaab;
+constexpr Elf_Word VPU_SHT_CMX_METADATA   = 0x8aaaaaac;
+constexpr Elf_Word VPU_SHT_CMX_WORKSPACE  = 0x8aaaaaad;
 constexpr Elf_Word VPU_SHT_PERF_METRICS   = 0x8aaaaaae;
 constexpr Elf_Word VPU_SHT_PLATFORM_INFO  = 0x8aaaaaaf;
 

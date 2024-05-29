@@ -81,6 +81,9 @@ table PerfPayloadConfig {
   /// 32b
   frcDuration: bool = false;
 
+  /// This follows the SHAVE hardware's SVU_PCC configuration.
+  /// Up to 4 counters can be specified here. The FW always reports them in ActKernelPerfCounter
+  /// ascending order. Duplicates are ignored.
   counters: [ActKernelPerfCounter];
 
   /// Only applicable if STALL_CYCLE_CNT_EN is set as one of the counter targets in `counters`.
@@ -104,7 +107,7 @@ table ActKernel {
   kernelEntry: uint32;
 
   /// This buffer represents the kernel implementation specific input arguments that are
-  /// unique to a particular Activation kernel implementation.
+  /// unique to a particular Activation SHAVE kernel implementation.
   globalArgs: KernelDataReference;
 
   // Fields for Uniquely identifying a Kernel (for version tracking)
@@ -122,7 +125,7 @@ table ActKernelInvocation{
   /// the monolithic kernel's .data section. There is a unique data section per-invocation
   dataSection: KernelDataReference;
 
-  /// This buffer represents the generic input arguments that all Activation kernels
+  /// This buffer represents the generic input arguments that all Activation SHAVE kernels
   /// share.
   invocationArgs: KernelDataReference;
 
@@ -138,12 +141,16 @@ table ActKernelInvocation{
 }
 
 table ActKernelTask {
+  /// This object describes an entire Activation SHAVE Kernel ND Range and
+  /// the configurations for the kernel invocations within that range.
   kernel: ActKernel;
   invocations: [ActKernelInvocation];
   layerType: string;
 }
 
 table ActKernelRuntime {
+  /// This object exist to accommodate the firmware to execute the Activation SHAVE Runtime.
+
   /// The schedule allocated space used for the runtime stack(s).
   shaveStacks: [KernelDataReference];
 

@@ -40,12 +40,17 @@ install(DIRECTORY "include/vpux_loader"
 #
 # hpi_component | -> common/ -> 2 hpp
 #               | -> 3720/   -> 1 hpp
+#               | -> 4000/   -> 1 hpp
 
 install(DIRECTORY "../hpi_component/include/common"
         DESTINATION cid/vpux_elf/loader/include/
         COMPONENT ${CID_COMPONENT})
 
 install(DIRECTORY "../hpi_component/include/3720"
+        DESTINATION cid/vpux_elf/loader/include/
+        COMPONENT ${CID_COMPONENT})
+
+install(DIRECTORY "../hpi_component/include/4000"
         DESTINATION cid/vpux_elf/loader/include/
         COMPONENT ${CID_COMPONENT})
 
@@ -59,6 +64,7 @@ install(DIRECTORY "../hpi_component/src"
 #
 # hpi_component | src | common -> 1 cpp
 #               |     |  3720  -> 1 cpp
+#               |     |  4000  -> 1 cpp
 
 
 install(DIRECTORY "../hpi_component/src/common"
@@ -66,6 +72,10 @@ install(DIRECTORY "../hpi_component/src/common"
         COMPONENT ${CID_COMPONENT})
 
 install(DIRECTORY "../hpi_component/src/3720"
+        DESTINATION cid/vpux_elf/loader/src/
+        COMPONENT ${CID_COMPONENT})
+
+install(DIRECTORY "../hpi_component/src/4000"
         DESTINATION cid/vpux_elf/loader/src/
         COMPONENT ${CID_COMPONENT})
 

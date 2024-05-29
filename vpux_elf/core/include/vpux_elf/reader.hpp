@@ -8,156 +8,172 @@
 #pragma once
 
 #include <vpux_elf/types/data_types.hpp>
-#include <vpux_elf/types/section_header.hpp>
-#include <vpux_elf/types/program_header.hpp>
 #include <vpux_elf/types/elf_header.hpp>
 #include <vpux_elf/types/elf_structs.hpp>
+#include <vpux_elf/types/program_header.hpp>
+#include <vpux_elf/types/section_header.hpp>
+#include <vpux_elf/types/vpu_extensions.hpp>
 #include <vpux_elf/utils/error.hpp>
 #include <vpux_elf/utils/utils.hpp>
-#include <vpux_elf/types/vpu_extensions.hpp>
 
 #include <vpux_elf/accessor.hpp>
 
-#include <string>
-#include <vector>
 #include <fstream>
+#include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace elf {
 
-template<ELF_Bitness B>
+template <ELF_Bitness B>
 class Reader {
 public:
     class Section {
     public:
         Section() = default;
-        Section(AccessManager* accessor, const typename ElfTypes<B>::SectionHeader* sectionHeader, const char* name, const uint8_t* data = nullptr)
-                : m_accessor(accessor), m_header(sectionHeader), m_name(name), m_data(data) {}
+        Section(AccessManager* accessor, const typename ElfTypes<B>::SectionHeader* sectionHeader, const char* name)
+                : mAccessManager(accessor), mHeader(sectionHeader), mName(name), mDataBuffer(nullptr) {
+            VPUX_ELF_THROW_WHEN(!mAccessManager, ArgsError, "nullptr AccessManager");
+            VPUX_ELF_THROW_WHEN(!mHeader, ArgsError, "nullptr section header");
+        }
 
         const typename ElfTypes<B>::SectionHeader* getHeader() const {
-            return m_header;
+            return mHeader;
         }
 
         size_t getEntriesNum() const {
-            VPUX_ELF_THROW_UNLESS(m_header->sh_entsize, SectionError,
-                                    "sh_entsize=0 represents a section that does not hold a table of fixed-size entries. This feature is not suported.")
-            return static_cast<size_t>(m_header->sh_size / m_header->sh_entsize);
+            VPUX_ELF_THROW_UNLESS(mHeader->sh_entsize, SectionError,
+                                  "sh_entsize=0 represents a section that does not hold a table of fixed-size entries. "
+                                  "This feature is not suported.")
+            return static_cast<size_t>(mHeader->sh_size / mHeader->sh_entsize);
         }
 
         const char* getName() const {
-            return m_name;
+            return mName;
         }
 
-        template<typename T>
+        template <typename T>
         const T* getData() const {
-            if (m_data == nullptr) {
-                m_data = m_accessor->read(AccessorDescriptor{m_header->sh_offset, m_header->sh_size, m_header->sh_flags, m_header->sh_addralign});
+            return reinterpret_cast<const T*>(getDataBuffer()->getBuffer().cpu_addr());
+        }
+
+        std::shared_ptr<ManagedBuffer> getDataBuffer() const {
+            if (!mDataBuffer) {
+                // SHT_NOBITS - sections can have a size greater than the file
+                // which will cause offset out of bounds.
+                // VPU_SHT_CMX_METADATA - does not contain data in the binary file, so avoid reading
+                // VPU_SHT_CMX_WORKSPACE - does not contain data in the binary file, so avoid reading
+                if (!((mHeader->sh_type == SHT_NOBITS) || (mHeader->sh_type == VPU_SHT_CMX_METADATA) ||
+                      mHeader->sh_type == VPU_SHT_CMX_WORKSPACE)) {
+                    mDataBuffer = mAccessManager->readInternal(
+                            mHeader->sh_offset,
+                            BufferSpecs(mHeader->sh_addralign, mHeader->sh_size, mHeader->sh_flags));
+                }
             }
-            return reinterpret_cast<const T*>(m_data);
+
+            return mDataBuffer;
         }
 
     private:
-        AccessManager* m_accessor = nullptr;
-        const typename ElfTypes<B>::SectionHeader* m_header = nullptr;
-        const char* m_name = nullptr;
-        mutable const uint8_t* m_data = nullptr;
+        AccessManager* mAccessManager = nullptr;
+        const typename ElfTypes<B>::SectionHeader* mHeader = nullptr;
+        const char* mName = nullptr;
+        mutable std::shared_ptr<ManagedBuffer> mDataBuffer;
     };
 
     class Segment {
     public:
         Segment(const typename ElfTypes<B>::ProgramHeader* programHeader, const uint8_t* data)
-                : m_programHeader(programHeader), m_data(data) {}
+                : mProgramHeader(programHeader), mData(data) {
+        }
 
         const typename ElfTypes<B>::ProgramHeader* getHeader() const {
-            return m_programHeader;
+            return mProgramHeader;
         }
 
         const uint8_t* getData() const {
-            return m_data;
+            return mData;
         }
 
     private:
-        const typename ElfTypes<B>::ProgramHeader* m_programHeader = nullptr;
-        const uint8_t* m_data = nullptr;
+        const typename ElfTypes<B>::ProgramHeader* mProgramHeader = nullptr;
+        const uint8_t* mData = nullptr;
     };
 
 public:
-    Reader(AccessManager* accessor)
-            : m_accessor(accessor) {
-        VPUX_ELF_THROW_UNLESS(m_accessor, ArgsError, "Accessor pointer is null");
+    explicit Reader(AccessManager* accessor): Reader(nullptr, accessor) {
+    }
+    Reader(BufferManager* bufferManager, AccessManager* accessor)
+            : mBufferManager(bufferManager), mAccessManager(accessor) {
+        VPUX_ELF_THROW_UNLESS(mAccessManager, ArgsError, "Accessor pointer is null");
 
-        m_elfHeader = reinterpret_cast<const typename ElfTypes<B>::ELFHeader*>(
-            m_accessor->read(AccessorDescriptor{0, sizeof(typename ElfTypes<B>::ELFHeader)}));
+        auto readBuffer(buildBufferFromMember(&mElfHeader));
+        mAccessManager->readExternal(0, readBuffer);
 
-        VPUX_ELF_THROW_UNLESS(utils::checkELFMagic(reinterpret_cast<const uint8_t*>(m_elfHeader)), HeaderError, "Incorrect ELF magic");
+        VPUX_ELF_THROW_UNLESS(utils::checkELFMagic(reinterpret_cast<const uint8_t*>(&mElfHeader)), HeaderError,
+                              "Incorrect ELF magic");
+        VPUX_ELF_THROW_UNLESS(sizeof(typename ElfTypes<B>::SectionHeader) == mElfHeader.e_shentsize, HeaderError,
+                              "Mismatch between expected and received section header size");
+        VPUX_ELF_THROW_UNLESS(mElfHeader.e_shoff >= sizeof(mElfHeader), HeaderError,
+                              "Section table overlaps ELF header");
 
-        m_sectionHeadersStart = reinterpret_cast<const typename ElfTypes<B>::SectionHeader*>(
-            m_accessor->read(AccessorDescriptor{m_elfHeader->e_shoff, (uint64_t)(m_elfHeader->e_shnum*m_elfHeader->e_shentsize)}));
-        m_programHeadersStart = reinterpret_cast<const typename ElfTypes<B>::ProgramHeader*>(
-            m_accessor->read(AccessorDescriptor{m_elfHeader->e_phoff, sizeof(typename ElfTypes<B>::ProgramHeader)}));
+        if (mElfHeader.e_shnum) {
+            mSectionHeaders.resize(mElfHeader.e_shnum);
+            readBuffer =
+                    buildBufferFromMember(&mSectionHeaders[0], mSectionHeaders.size() * sizeof(mSectionHeaders[0]));
+            mAccessManager->readExternal(mElfHeader.e_shoff, readBuffer);
 
-        const auto secNames = reinterpret_cast<const typename ElfTypes<B>::SectionHeader*>(
-                                m_sectionHeadersStart + m_elfHeader->e_shstrndx);
-        m_sectionHeadersNames = reinterpret_cast<const char*>(
-            m_accessor->read(AccessorDescriptor{secNames->sh_offset, secNames->sh_size}));
+            if (mElfHeader.e_shstrndx) {
+                const auto secNamesSection = mSectionHeaders[mElfHeader.e_shstrndx];
+                mSectionNames.resize(secNamesSection.sh_size);
+                readBuffer = buildBufferFromMember(&mSectionNames[0], mSectionNames.size() * sizeof(mSectionNames[0]));
+                mAccessManager->readExternal(secNamesSection.sh_offset, readBuffer);
+            }
+        }
     }
 
     const typename ElfTypes<B>::ELFHeader* getHeader() const {
-        return m_elfHeader;
+        return &mElfHeader;
     }
 
     size_t getSectionsNum() const {
-        VPUX_ELF_THROW_UNLESS(m_elfHeader && (m_elfHeader->e_shnum <= 1000), ArgsError, "Invalid e_shnum");
-        return m_elfHeader->e_shnum;
+        VPUX_ELF_THROW_UNLESS(mElfHeader.e_shnum <= 1000, ArgsError, "Invalid e_shnum");
+        return mElfHeader.e_shnum;
     }
 
     size_t getSegmentsNum() const {
-        VPUX_ELF_THROW_UNLESS(m_elfHeader && (m_elfHeader->e_phnum <= 1000), ArgsError, "Invalid e_phnum");
-        return m_elfHeader->e_phnum;
+        VPUX_ELF_THROW_UNLESS(mElfHeader.e_phnum <= 1000, ArgsError, "Invalid e_phnum");
+        return mElfHeader.e_phnum;
     }
 
     const Section& getSection(size_t index) const {
-        if (m_sectionsCache.find(index) != m_sectionsCache.end()) {
-            return m_sectionsCache[index];
+        VPUX_ELF_THROW_WHEN(index >= mElfHeader.e_shnum, RangeError, "Section index out of bounds");
+
+        if (mSectionsCache.find(index) != mSectionsCache.end()) {
+            return mSectionsCache[index];
         }
 
-        const auto secHeader = m_sectionHeadersStart + index;
-        const auto name = m_sectionHeadersNames + secHeader->sh_name;
-        const auto data = m_accessor->read(
-            AccessorDescriptor{secHeader->sh_offset,
-                               // SHT_NOBITS - sections can have a size greater than the file
-                               // which will cause offset out of bounds.
-                               (secHeader->sh_type == SHT_NOBITS) ? 0 : secHeader->sh_size,
-                               secHeader->sh_flags, secHeader->sh_addralign});
+        const auto& secHeader = mSectionHeaders[index];
+        const auto name = &mSectionNames[secHeader.sh_name];
 
-        auto section = Section(m_accessor, secHeader, name, data);
-        m_sectionsCache[index] = section;
-
-        return m_sectionsCache[index];
-    }
-
-    const Section& getSectionNoData(size_t index) const {
-        if (m_sectionsCache.find(index) != m_sectionsCache.end()) {
-            return m_sectionsCache[index];
-        }
-
-        const auto sectionHeader = m_sectionHeadersStart + index;
-        const auto name = m_sectionHeadersNames + sectionHeader->sh_name;
-        auto section = Section(m_accessor, sectionHeader, name);
-        m_sectionsCache[index] = section;
-
-        return m_sectionsCache[index];
+        return mSectionsCache[index] = Section(mAccessManager, &secHeader, name);
     }
 
 private:
-    AccessManager* m_accessor;
+    BufferManager* mBufferManager;
+    AccessManager* mAccessManager;
 
-    const typename ElfTypes<B>::ELFHeader* m_elfHeader = nullptr;
-    const typename ElfTypes<B>::SectionHeader* m_sectionHeadersStart = nullptr;
-    const typename ElfTypes<B>::ProgramHeader* m_programHeadersStart = nullptr;
-    const char* m_sectionHeadersNames = nullptr;
+    typename ElfTypes<B>::ELFHeader mElfHeader;
+    std::vector<typename ElfTypes<B>::SectionHeader> mSectionHeaders;
+    std::vector<typename ElfTypes<B>::ProgramHeader> mProgramHeaders;
+    std::vector<char> mSectionNames;
 
-    mutable std::unordered_map<size_t, Section> m_sectionsCache;
+    mutable std::unordered_map<size_t, Section> mSectionsCache;
+
+    template <typename T>
+    StaticBuffer buildBufferFromMember(T* member, size_t byteSize = sizeof(T)) {
+        return StaticBuffer(reinterpret_cast<uint8_t*>(member), BufferSpecs(0, byteSize, 0));
+    }
 };
 
-} // namespace elf
+}  // namespace elf

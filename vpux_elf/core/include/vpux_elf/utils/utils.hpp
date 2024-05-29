@@ -11,9 +11,11 @@
 namespace elf {
 namespace utils {
 
-bool checkELFMagic(const unsigned char *elfIdent);
+bool checkELFMagic(const unsigned char* elfIdent);
 
 size_t alignUp(size_t size, size_t alignment);
 
-} // namespace utils
-} // namespace elf
+bool isPowerOfTwo(size_t value);
+
+}  // namespace utils
+}  // namespace elf

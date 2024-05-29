@@ -5,21 +5,14 @@
 
 //
 
+#include <vpux_elf/utils/utils.hpp>
 #include <vpux_elf/writer.hpp>
 
-#include <unordered_set>
 #include <algorithm>
+#include <unordered_set>
 
 using namespace elf;
 using namespace elf::writer;
-
-namespace {
-
-uint64_t alignOffset(uint64_t offset, uint64_t alignReq) {
-    return ((offset + (alignReq - 1)) / alignReq) * alignReq;
-}
-
-} // namespace
 
 //
 // Writer
@@ -58,11 +51,11 @@ std::vector<uint8_t> Writer::generateELF() {
 
     auto curOffset = elfHeader.e_ehsize;
     if (elfHeader.e_shnum) {
-        elfHeader.e_shoff = alignOffset(curOffset, elfHeader.e_shentsize);
+        elfHeader.e_shoff = utils::alignUp(curOffset, elfHeader.e_shentsize);
         curOffset = static_cast<Elf_Half>(elfHeader.e_shoff);
     }
     if (elfHeader.e_phnum) {
-        elfHeader.e_phoff = alignOffset(curOffset + elfHeader.e_shnum * elfHeader.e_shentsize, elfHeader.e_phentsize);
+        elfHeader.e_phoff = utils::alignUp(curOffset + elfHeader.e_shnum * elfHeader.e_shentsize, elfHeader.e_phentsize);
         curOffset = static_cast<Elf_Half>(elfHeader.e_phoff);
     } else {
         curOffset += elfHeader.e_shnum * elfHeader.e_shentsize;
@@ -73,7 +66,8 @@ std::vector<uint8_t> Writer::generateELF() {
 
     const auto alignData = [&data, &dataOffset](const Section* section) {
         const auto curFileOffset = dataOffset + data.size();
-        const auto alignedFileOffset = alignOffset(curFileOffset, section->getFileAlignRequirement());
+        const auto alignedFileOffset = utils::alignUp(curFileOffset, section->getAddrAlign());
+
         if (curFileOffset != alignedFileOffset) {
             data.resize(data.size() + (alignedFileOffset - curFileOffset), 0);
         }
@@ -94,7 +88,8 @@ std::vector<uint8_t> Writer::generateELF() {
     };
 
     for (auto& section : m_sections) {
-        if (std::find(sectionsFromSegments.begin(), sectionsFromSegments.end(), section.get()) != sectionsFromSegments.end()) {
+        if (std::find(sectionsFromSegments.begin(), sectionsFromSegments.end(), section.get()) !=
+            sectionsFromSegments.end()) {
             continue;
         }
 
@@ -127,7 +122,8 @@ std::vector<uint8_t> Writer::generateELF() {
     std::vector<uint8_t> elfBlob;
     elfBlob.reserve(dataOffset + data.size());
 
-    elfBlob.insert(elfBlob.end(), reinterpret_cast<uint8_t*>(&elfHeader), reinterpret_cast<uint8_t*>(&elfHeader) + elfHeader.e_ehsize);
+    elfBlob.insert(elfBlob.end(), reinterpret_cast<uint8_t*>(&elfHeader),
+                   reinterpret_cast<uint8_t*>(&elfHeader) + elfHeader.e_ehsize);
     if (elfHeader.e_shoff) {
         elfBlob.resize(elfHeader.e_shoff, 0);
         elfBlob.insert(elfBlob.end(), reinterpret_cast<uint8_t*>(sectionHeaders.data()),

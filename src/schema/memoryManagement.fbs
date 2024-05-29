@@ -58,7 +58,7 @@ enum DType : byte {
 
   // Unsigned Integers (cont.)
   U4 = 20,
-
+  
   // FP8 specific types
   BF8 = 21,  // (E5M2) "Brain Float 8"
   HF8 = 22,  // (E4M3) "Hybrid Float 8"
@@ -69,6 +69,7 @@ table BinaryData{
   // There can be many BinaryDatas as part of the graphfile.
   // Together they contain all known Tensors that are parameters
   // to the serialized network.
+
 
   // FlatBuffers internally align to the size of the datatype.
   // As there are several things that perform better (or perform at all)
@@ -219,7 +220,7 @@ table TensorReference {
 
   // Configuration for the IDU base_offset or ODU base_ptr registers.
   base_ptrs: [ushort];
-
+  
   // If descriptor is set then it is an address of an indirect directml data descriptor.
   descriptor: ulong;
 

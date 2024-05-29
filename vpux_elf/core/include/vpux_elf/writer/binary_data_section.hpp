@@ -29,6 +29,12 @@ public:
         return offset;
     }
 
+    T* expandData(size_t sizeInElements) {
+        m_data.resize(m_data.size() + sizeInElements * sizeof(T));
+        auto insertionPoint = m_data.end() - sizeInElements * sizeof(T);
+        return &(*insertionPoint);
+    }
+
     size_t getNumEntries() const {
         return static_cast<size_t>(m_data.size() / sizeof(T));
     }

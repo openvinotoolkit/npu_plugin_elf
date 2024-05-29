@@ -37,6 +37,10 @@ size_t alignUp(size_t size, size_t alignment) {
     return size;
 }
 
+bool isPowerOfTwo(size_t value) {
+    return value && ((value & (value - 1)) == 0);
+}
+
 }  // namespace utils
 
 }  // namespace elf

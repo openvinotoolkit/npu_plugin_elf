@@ -16,6 +16,10 @@
 #include <hpi_3720.hpp>
 #endif
 
+#if defined(CONFIG_TARGET_SOC_4000) || defined(HOST_BUILD)
+#include <hpi_4000.hpp>
+#endif
+
 #include <string.h>
 // clang-format on
 
@@ -32,6 +36,12 @@ static std::unique_ptr<HostParsedInferenceCommon> getArchSpecificHPI(const elf::
         archSpecificHPI = std::make_unique<HostParsedInference_3720>();
         break;
 #endif
+
+#if defined(CONFIG_TARGET_SOC_4000) || defined(HOST_BUILD)
+    case elf::platform::ArchKind::VPUX40XX:
+        archSpecificHPI = std::make_unique<HostParsedInference_4000>();
+        break;
+#endif
     default:
         VPUX_ELF_THROW(RangeError, (elf::platform::stringifyArchKind(archKind) + " arch is not supported").c_str());
         break;
@@ -41,6 +51,11 @@ static std::unique_ptr<HostParsedInferenceCommon> getArchSpecificHPI(const elf::
 }
 
 }  // namespace
+
+VersionsProvider::VersionsProvider(platform::ArchKind architecture) : impl(getArchSpecificHPI(architecture)) {}
+VersionsProvider::~VersionsProvider() = default;
+Version VersionsProvider::getLibraryELFVersion() const { return impl->getELFLibABIVersion(); }
+Version VersionsProvider::getLibraryMIVersion() const { return impl->getStaticMIVersion(); }
 
 const uint64_t* HostParsedInference::readPerfMetrics() {
     const auto& sections = loader->getSectionsOfType(elf::VPU_SHT_PERF_METRICS);
@@ -94,6 +109,14 @@ elf::Version HostParsedInference::getMIVersion() const {
     return readVersioningInfo(elf::elf_note::NT_NPU_MPI_VERSION);
 }
 
+elf::Version HostParsedInference::getLibraryELFVersion() const {
+    return getArchSpecificHPI(hpiCfg.archKind)->getELFLibABIVersion();
+}
+
+elf::Version HostParsedInference::getLibraryMIVersion() const {
+    return getArchSpecificHPI(hpiCfg.archKind)->getStaticMIVersion();
+}
+
 HostParsedInference::HostParsedInference(BufferManager* bufferMgr, AccessManager* accessMgr, elf::HPIConfigs hpiConfigs)
         : bufferManager(bufferMgr), accessManager(accessMgr), hpiCfg(hpiConfigs) {
     // create the loader object to cache sections
@@ -102,7 +125,7 @@ HostParsedInference::HostParsedInference(BufferManager* bufferMgr, AccessManager
     auto& expectedArch = hpiConfigs.archKind;
     auto archSpecificHpi = getArchSpecificHPI(expectedArch);
     // Check ELF Library ABI Compatibility
-    elf::Version::checkVersionCompatibility(archSpecificHpi->getELFLibABIVersion(), getElfABIVersion(), elf::VersionType::ELF_ABI_VERSION);
+    elf::Version::checkVersionCompatibility(getLibraryELFVersion(), getElfABIVersion(), elf::VersionType::ELF_ABI_VERSION);
 
     readMetadata();
     readPlatformInfo();
@@ -111,7 +134,7 @@ HostParsedInference::HostParsedInference(BufferManager* bufferMgr, AccessManager
 
     // Check if compiled ELF arch and HPI arch match
     if (archKind != expectedArch) {
-        std::stringstream logBuffer; 
+        std::stringstream logBuffer;
         logBuffer << "Incorrect arch. Expected: " << elf::platform::stringifyArchKind(expectedArch) << " vs Received: " << elf::platform::stringifyArchKind(archKind);
         VPUX_ELF_THROW(ArgsError, logBuffer.str().c_str());
     }
@@ -121,7 +144,7 @@ HostParsedInference::HostParsedInference(BufferManager* bufferMgr, AccessManager
 
     // If Expected Mapped Inference version is not provided via HPI config, fall back to local version
     if (!nnExpectedVersion.checkValidity()) {
-        nnExpectedVersion = archSpecificHpi->getStaticMIVersion();
+        nnExpectedVersion = getLibraryMIVersion();
     }
 
     elf::Version::checkVersionCompatibility(nnExpectedVersion, getMIVersion(), elf::VersionType::MAPPED_INFERENCE_VERSION);

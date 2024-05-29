@@ -7,35 +7,71 @@
 #define VPUX_ELF_LOG_UNIT_NAME "Accessor"
 #endif
 
+#include <cstring>
 #include <vpux_elf/accessor.hpp>
 #include <vpux_elf/utils/error.hpp>
 #include <vpux_elf/utils/log.hpp>
 
 namespace elf {
 
-size_t AccessManager::getSize() const {
-    return m_size;
+AccessManager::AccessManager(): mSize(0) {
 }
 
-ElfDDRAccessManager::ElfDDRAccessManager(const uint8_t* blob, size_t size) {
+AccessManager::AccessManager(size_t binarySize): mSize(binarySize) {
+}
+
+size_t AccessManager::getSize() const {
+    return mSize;
+}
+
+ElfDDRAccessManager::Config::InPlaceConfig::InPlaceConfig(): mIsInPlaceEnabled(true), mIsAlignmentCheckEnabled(false) {
+}
+
+ElfDDRAccessManager::Config::Config(): mBufferManager(nullptr), mInPlaceConfig() {
+}
+
+ElfDDRAccessManager::ElfDDRAccessManager(const uint8_t* blob, size_t size, Config config)
+        : AccessManager(size), mConfig(config) {
     VPUX_ELF_THROW_WHEN(blob == nullptr, ArgsError, "invalid binary file arg");
 
-    m_blob = blob;
-    m_size = size;
+    mBlob = blob;
 }
 
-const uint8_t* ElfDDRAccessManager::read(const AccessorDescriptor& descriptor) {
-    VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t offset: %llu, size: %llu, procFlags: %llu, alignment: %llu",
-                 descriptor.offset, descriptor.size, descriptor.procFlags, descriptor.alignment);
+std::unique_ptr<ManagedBuffer> ElfDDRAccessManager::readInternal(size_t offset, const BufferSpecs& specs) {
+    std::unique_ptr<ManagedBuffer> buffer = nullptr;
 
-    VPUX_ELF_THROW_WHEN(descriptor.offset + descriptor.size > m_size, AccessError,
-                        "Offset out of bounds!");
+    VPUX_ELF_THROW_WHEN((offset + specs.size) > mSize, AccessError, "Read request out of bounds");
 
-    return m_blob + descriptor.offset;
+    if (mConfig.mBufferManager) {
+        buffer = std::make_unique<AllocatedDeviceBuffer>(mConfig.mBufferManager, specs);
+        auto devBuffer = buffer->getBuffer();
+        mConfig.mBufferManager->copy(devBuffer, mBlob + offset, devBuffer.size());
+    } else {
+        if (mConfig.mInPlaceConfig.mIsInPlaceEnabled) {
+            if (mConfig.mInPlaceConfig.mIsAlignmentCheckEnabled) {
+                if ((!specs.alignment) || ((reinterpret_cast<size_t>(mBlob + offset)) % specs.alignment == 0)) {
+                    buffer = std::make_unique<StaticBuffer>(const_cast<uint8_t*>(mBlob + offset), specs);
+                } else {
+                    buffer = std::make_unique<DynamicBuffer>(specs);
+                    std::memcpy(buffer->getBuffer().cpu_addr(), mBlob + offset, buffer->getBuffer().size());
+                }
+            } else {
+                buffer = std::make_unique<StaticBuffer>(const_cast<uint8_t*>(mBlob + offset), specs);
+            }
+        } else {
+            buffer = std::make_unique<DynamicBuffer>(specs);
+            std::memcpy(buffer->getBuffer().cpu_addr(), mBlob + offset, buffer->getBuffer().size());
+        }
+    }
+
+    return buffer;
 }
 
-const uint8_t* ElfDDRAccessManager::getBlob() const {
-    return m_blob;
+void ElfDDRAccessManager::readExternal(size_t offset, ManagedBuffer& buffer) {
+    VPUX_ELF_THROW_WHEN((offset + buffer.getBufferSpecs().size) > mSize, AccessError, "Read request out of bounds");
+
+    auto devBuffer = buffer.getBuffer();
+    std::memcpy(devBuffer.cpu_addr(), mBlob + offset, devBuffer.size());
 }
 
 ElfFSAccessManager::ElfFSAccessManager(const std::string& elfFileName)
@@ -44,22 +80,22 @@ ElfFSAccessManager::ElfFSAccessManager(const std::string& elfFileName)
                         std::string("unable to access binary file " + elfFileName).c_str());
 
     m_elfStream.seekg(0, m_elfStream.end);
-    m_size = m_elfStream.tellg();
-    m_readBuffer.resize(m_size, '\0');
-    VPUX_ELF_THROW_UNLESS(m_readBuffer.size() == m_size, AllocError, "Could not allocate memory for ELF file");
+    mSize = m_elfStream.tellg();
 }
 
-const uint8_t* ElfFSAccessManager::read(const AccessorDescriptor& descriptor) {
-    VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t offset: %llu, size: %llu, procFlags: %llu, alignment: %llu",
-                 descriptor.offset, descriptor.size, descriptor.procFlags, descriptor.alignment);
+std::unique_ptr<ManagedBuffer> ElfFSAccessManager::readInternal(size_t offset, const BufferSpecs& specs) {
+    VPUX_ELF_THROW_WHEN((offset + specs.size) > mSize, AccessError, "Read request out of bounds");
+    auto buffer = std::make_unique<DynamicBuffer>(specs);
+    m_elfStream.seekg(offset, m_elfStream.beg);
+    m_elfStream.read(reinterpret_cast<char*>(buffer->getBuffer().cpu_addr()), buffer->getBuffer().size());
 
-    VPUX_ELF_THROW_WHEN(descriptor.offset + descriptor.size > m_size, AccessError,
-                        "Offset out of bounds!");
+    return buffer;
+}
 
-    m_elfStream.seekg(descriptor.offset, m_elfStream.beg);
-    m_elfStream.read(&m_readBuffer[descriptor.offset], descriptor.size);
-
-    return reinterpret_cast<const uint8_t*>(&m_readBuffer[descriptor.offset]);
+void ElfFSAccessManager::readExternal(size_t offset, ManagedBuffer& buffer) {
+    VPUX_ELF_THROW_WHEN((offset + buffer.getBufferSpecs().size) > mSize, AccessError, "Read request out of bounds");
+    m_elfStream.seekg(offset, m_elfStream.beg);
+    m_elfStream.read(reinterpret_cast<char*>(buffer.getBuffer().cpu_addr()), buffer.getBuffer().size());
 }
 
 ElfFSAccessManager::~ElfFSAccessManager() {

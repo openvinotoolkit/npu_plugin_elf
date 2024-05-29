@@ -30,6 +30,10 @@ public:
     explicit Version(const elf::elf_note::VersionNote& versionNote) : major{versionNote.n_desc[1]}, minor{versionNote.n_desc[2]}, patch{versionNote.n_desc[3]}, isValid{true} {};
     Version() = default;
 
+    uint32_t getMajor() const;
+    uint32_t getMinor() const;
+    uint32_t getPatch() const;
+
     friend std::ostream& operator<< (std::ostream& stream, const Version& version) {
         stream << version.major << "." << version.minor << "." << version.patch;
         return stream;
