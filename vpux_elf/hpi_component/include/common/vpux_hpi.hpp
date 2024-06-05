@@ -11,6 +11,7 @@
 #include <vpux_elf/accessor.hpp>
 #include <vpux_headers/buffer_manager.hpp>
 #include <vpux_headers/device_buffer.hpp>
+#include <vpux_headers/managed_buffer.hpp>
 #include <vpux_headers/metadata.hpp>
 #include <vpux_headers/platform.hpp>
 #include <vpux_elf/utils/version.hpp>
@@ -18,12 +19,24 @@
 namespace elf {
 
 class VPUXLoader;
+class HostParsedInferenceCommon;
 
 // Structure that gathers configuration options for HPI instances.
 // Subject to various additions/modifications in the future
 struct HPIConfigs {
     elf::Version nnVersion;
     elf::platform::ArchKind archKind = elf::platform::ArchKind::UNKNOWN;
+};
+
+class VersionsProvider final {
+public:
+    explicit VersionsProvider(platform::ArchKind architecture);
+    ~VersionsProvider();
+    Version getLibraryELFVersion() const;
+    Version getLibraryMIVersion() const;
+
+private:
+    std::unique_ptr<HostParsedInferenceCommon> impl;
 };
 
 class HostParsedInference final {
@@ -45,6 +58,8 @@ public:
     std::shared_ptr<const elf::platform::PlatformInfo> getPlatformInfo();
     elf::Version getElfABIVersion() const;
     elf::Version getMIVersion() const;
+    elf::Version getLibraryELFVersion() const;
+    elf::Version getLibraryMIVersion() const;
 
     void applyInputOutput(std::vector<DeviceBuffer>& inputs, std::vector<DeviceBuffer>& outputs,
                           std::vector<DeviceBuffer>& profiling);

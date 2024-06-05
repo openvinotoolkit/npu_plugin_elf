@@ -22,6 +22,18 @@ namespace {
 }
 };
 
+uint32_t Version::getMajor() const {
+    return major;
+}
+
+uint32_t Version::getMinor() const {
+    return minor;
+}
+
+uint32_t Version::getPatch() const {
+    return patch;
+}
+
 bool Version::checkValidity() const {
     return isValid && major > 0;
 }

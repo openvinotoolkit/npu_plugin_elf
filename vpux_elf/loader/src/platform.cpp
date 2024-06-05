@@ -16,7 +16,8 @@ namespace platform {
 const std::unordered_map<std::string, elf::platform::ArchKind>& getKnownArchitectures() {
     static const std::unordered_map<std::string, elf::platform::ArchKind> knownArch = {{"UNKNOWN", elf::platform::ArchKind::UNKNOWN},
                                                     {"VPUX30XX", elf::platform::ArchKind::VPUX30XX},
-                                                    {"VPUX37XX", elf::platform::ArchKind::VPUX37XX}};
+                                                    {"VPUX37XX", elf::platform::ArchKind::VPUX37XX},
+                                                    {"VPUX40XX", elf::platform::ArchKind::VPUX40XX}};
 
     return knownArch;
 }

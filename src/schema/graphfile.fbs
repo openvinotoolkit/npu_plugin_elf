@@ -9,6 +9,7 @@ include "nnNCE2.fbs";
 include "upaNCE.fbs";
 include "actKernel.fbs";
 include "software.fbs";
+include "m2i.fbs";
 
 namespace MVCNN;
 
@@ -71,7 +72,10 @@ union SpecificTask{
     NNTensorTask,       // Only for backward compatibility
     ControllerTask,
     UPALayerTask,
-    ActKernelTask
+    SNNLayerTask,
+    ActKernelTask,
+    GenericTask,
+    M2ITask
 }
 
 table Task{
@@ -90,6 +94,12 @@ table Task{
     // The details of a task, that are particular to the type of task represented.
     task: SpecificTask;
 }
+
+table GenericTask{
+    cost: long;   // Cycles to process
+    clock: long;   // Based on clock
+}
+
 
 // This line just tells FlatBuffers to start with this object when parsing.
 // As a human, you would already understand more of the schema at this point than the robots

@@ -8,7 +8,7 @@
 #pragma once
 
 #ifndef VPUX_ELF_LOG_ENABLED
-#define VPUX_ELF_LOG_ENABLED 1
+#define VPUX_ELF_LOG_ENABLED 0
 #endif
 
 #ifndef VPUX_ELF_LOG_UNIT_NAME

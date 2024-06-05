@@ -8,7 +8,6 @@ namespace MVCNN;
 
 /// Note: This file is not well-defined.
 /// Generally modelled around v2 infrastructure for software layers.
-//
 
 union NCE1Layer {
   NCE1Conv,

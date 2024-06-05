@@ -77,14 +77,11 @@ table preprocessingInfo {
 }
 
 // The DPU HWP payload contents are configurable via this enum.
+// The profiling data record size is 16 bytes for NPU 3720 and 32 bytes for NPU 4000
 enum PerfDataMode : byte {
-  // IDU and ODU workload durations and timestamps
   MODE0,
-  // Dense and sparse information of act and wt
   MODE1,
-  // Dense and sparse information of wt and IDU workload duration and timestamp
   MODE2,
-  // Dense and sparse information of act and IDU workload duration and timestamp
   MODE3
 }
 
@@ -156,7 +153,8 @@ table SummaryHeader{
   // Indicates whether DMA hardware profiling (DMA HWP) is enabled for this inference
   dma_hwp_enabled : bool = false;
 
-  // This tensor represent DMA HWP base to be set by the runtime.
+  // This tensor represent DMA HWP base to be set by the runtime in CDMA_HWP_ADR for the context the inference
+  // is running in.
   dma_hwp_base : TensorReference;
 
   // This optional tensor points to 8 byte location within profiling_output

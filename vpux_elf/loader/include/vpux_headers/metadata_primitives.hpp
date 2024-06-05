@@ -56,8 +56,9 @@ enum DType {
     DType_I2X = 18,
     DType_BFP16 = 19,
     DType_U4 = 20,
+    DType_HF8 = 21,
     DType_MIN = DType_NOT_SET,
-    DType_MAX = DType_U4
+    DType_MAX = DType_HF8
 };
 
 enum PreProcessColorSpace {
@@ -97,8 +98,10 @@ enum OVNodeType {
     OVNodeType_U16 = 15,
     OVNodeType_U32 = 16,
     OVNodeType_U64 = 17,
+    OVNodeType_F8E4M3 = 18,
+    OVNodeType_F8E5M2 = 19,
     OVNodeType_MIN = OVNodeType_UNDEFINED,
-    OVNodeType_MAX = OVNodeType_U64
+    OVNodeType_MAX = OVNodeType_F8E5M2,
 };
 
 struct VPUX_ALIGNED_STRUCT(8) Identification {

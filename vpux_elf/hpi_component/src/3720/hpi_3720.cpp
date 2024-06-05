@@ -115,8 +115,8 @@ BufferSpecs HostParsedInference_3720::getParsedInferenceBufferSpecs() {
 void HostParsedInference_3720::setHostParsedInference(DeviceBuffer& devBuffer, uint64_t mapped_entry,
                                                       ResourceRequirements resReq, const uint64_t* perf_metrics) {
     auto hpi = reinterpret_cast<nn_public::VpuHostParsedInference*>(devBuffer.cpu_addr());
+    *hpi = {};
 
-    hpi->resource_requirements_ = {};
     hpi->resource_requirements_.nn_slice_count_ = resReq.nn_slice_count_;
     hpi->resource_requirements_.nn_barriers_ = resReq.nn_barriers_;
     if (perf_metrics) {
