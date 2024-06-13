@@ -1221,6 +1221,13 @@ table UPALayerTask{
   profiling_data: TensorReference;
 }
 
+// TODO: write me
+table SNNLayerTask{
+  // Allows the GF to configure soft layer specific parameters.
+  // The SoftwareLayerParam type implies the soft layer type.
+  softLayerParams: SoftwareLayerParams;
+}
+
 // Legacy tables needed only for 3.11.3 backwards compatibility. They can be completely removed after backward
 // compatibility is not required
 
