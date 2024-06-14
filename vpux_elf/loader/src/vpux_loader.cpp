@@ -367,20 +367,6 @@ const auto VPU_32_BIT_OR_B21_B26_UNSET_LOW_16_Relocation = [](void* targetAddr, 
     *addr |= patchAddr & 0xFFFF;
 };
 
-// NPU5 only
-const auto VPU_HIGH_27_BIT_OR_Relocation = [](void *targetAddr, const elf::SymbolEntry &targetSym,
-                                              const Elf_Sxword addend) -> void {
-    auto addr = reinterpret_cast<uint64_t *>(targetAddr);
-    auto symVal = targetSym.st_value;
-    VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t\tHigh 27 bits reloc, addr %p addrVal 0x%llx  symVal 0x%llx addend %llu", addr,
-                 *addr, symVal, addend);
-
-    auto patchAddrUnsetTile = static_cast<uint32_t>(symVal + addend) &
-                              ~0xE0'0000; // unsetting 3 tile bits as NPU5 only uses 3 bits for tile selection
-    auto patchAddr = (patchAddrUnsetTile >> 4) & (0x7FFF'FFFF >> 4); // only [30:4]
-    *addr |= (static_cast<uint64_t>(patchAddr) << 37);               // set [64:37]
-};
-
 }  // namespace
 
 const std::map<Elf_Word, VPUXLoader::Action> VPUXLoader::actionMap = {
@@ -428,7 +414,6 @@ const std::map<VPUXLoader::RelocationType, VPUXLoader::RelocationFunc> VPUXLoade
         {R_VPU_16_LSB_17_RSHIFT_5_LSHIFT_CUSTOM, VPU_16_BIT_LSB_17_RSHIFT_5_LSHIFT_CUSTOM_Relocation},
         {R_VPU_32_BIT_OR_B21_B26_UNSET_HIGH_16, VPU_32_BIT_OR_B21_B26_UNSET_HIGH_16_Relocation},
         {R_VPU_32_BIT_OR_B21_B26_UNSET_LOW_16, VPU_32_BIT_OR_B21_B26_UNSET_LOW_16_Relocation},
-        {R_VPU_HIGH_27_BIT_OR, VPU_HIGH_27_BIT_OR_Relocation},
 };
 
 VPUXLoader::VPUXLoader(AccessManager* accessor, BufferManager* bufferManager)
