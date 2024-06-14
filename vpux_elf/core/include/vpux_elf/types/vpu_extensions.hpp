@@ -151,7 +151,7 @@ constexpr Elf_Word R_VPU_32_BIT_OR_B21_B26_UNSET_LOW_16 = 22;
 
 // Used for tile select relocations of 27 bit for DMA Accelerator: bitmapBaseAddr[30:4] (16 byte aligned)
 // Formula:
-// patchAddrUnsetTile = (S + A) & ~0xE0'0000                  - clear NPU5 tile bits
+// patchAddrUnsetTile = (S + A) & ~0xE0'0000
 // patchAddr = (patchAddrUnsetTile >> 4) & (0x7FFF'FFFF >> 4) - only [30:4]
 // Dst |= patchAddr << 37;                                    - set [64:37]
 constexpr Elf_Word R_VPU_HIGH_27_BIT_OR = 23;
