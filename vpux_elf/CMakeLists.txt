@@ -24,8 +24,13 @@ list(FILTER SOURCES EXCLUDE REGEX "${CMAKE_CURRENT_SOURCE_DIR}/example/.*")
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${HEADERS} ${SOURCES})
 
-add_library(${LIB_NAME} STATIC ${SOURCES})
-add_library(vpux_elf STATIC ${SOURCES})
+if(BUILD_SHARED_LIBS)
+    add_library(${LIB_NAME} SHARED ${SOURCES})
+    add_library(vpux_elf SHARED ${SOURCES})
+else()
+    add_library(${LIB_NAME} STATIC ${SOURCES})
+    add_library(vpux_elf STATIC ${SOURCES})
+endif()
 
 target_compile_definitions(${LIB_NAME} PUBLIC HOST_BUILD)
 target_compile_definitions(vpux_elf PUBLIC HOST_BUILD)
