@@ -72,7 +72,6 @@ enum ActKernelPerfStallFilter : byte {
     INST_BUFF_LOW_DISC = 26
 }
 
-/// Performance Counter configuration for all associated Activation SHAVEs.
 table PerfPayloadConfig {
   /// Use the Free Running Counter
   /// 64b
@@ -81,9 +80,6 @@ table PerfPayloadConfig {
   /// 32b
   frcDuration: bool = false;
 
-  /// This follows the SHAVE hardware's SVU_PCC configuration.
-  /// Up to 4 counters can be specified here. The FW always reports them in ActKernelPerfCounter
-  /// ascending order. Duplicates are ignored.
   counters: [ActKernelPerfCounter];
 
   /// Only applicable if STALL_CYCLE_CNT_EN is set as one of the counter targets in `counters`.

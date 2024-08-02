@@ -5,6 +5,7 @@
 
 //
 
+#include <vpux_elf/utils/error.hpp>
 #include <vpux_elf/utils/utils.hpp>
 #include <vpux_elf/writer.hpp>
 
@@ -55,36 +56,40 @@ std::vector<uint8_t> Writer::generateELF() {
         curOffset = static_cast<Elf_Half>(elfHeader.e_shoff);
     }
     if (elfHeader.e_phnum) {
-        elfHeader.e_phoff = utils::alignUp(curOffset + elfHeader.e_shnum * elfHeader.e_shentsize, elfHeader.e_phentsize);
+        elfHeader.e_phoff =
+                utils::alignUp(curOffset + elfHeader.e_shnum * elfHeader.e_shentsize, elfHeader.e_phentsize);
         curOffset = static_cast<Elf_Half>(elfHeader.e_phoff);
     } else {
         curOffset += elfHeader.e_shnum * elfHeader.e_shentsize;
     }
-    const auto dataOffset = curOffset + elfHeader.e_phnum * elfHeader.e_phentsize;
 
-    std::vector<uint8_t> data;
+    auto dataOffset = static_cast<size_t>(curOffset + elfHeader.e_phnum * elfHeader.e_phentsize);
+    auto totalBinarySize = dataOffset;
 
-    const auto alignData = [&data, &dataOffset](const Section* section) {
-        const auto curFileOffset = dataOffset + data.size();
-        const auto alignedFileOffset = utils::alignUp(curFileOffset, section->getAddrAlign());
-
-        if (curFileOffset != alignedFileOffset) {
-            data.resize(data.size() + (alignedFileOffset - curFileOffset), 0);
+    for (auto& section : m_sections) {
+        totalBinarySize = utils::alignUp(totalBinarySize, section->m_header.sh_addralign) + section->m_data.size();
+    }
+    for (auto& segment : m_segments) {
+        for (auto& section : segment->m_sections) {
+            totalBinarySize = utils::alignUp(totalBinarySize, section->m_header.sh_addralign) + section->m_data.size();
         }
-    };
+        totalBinarySize = utils::alignUp(totalBinarySize, segment->m_header.p_align) + segment->m_data.size();
+    }
 
-    const auto serializeSection = [&data, &dataOffset, &sectionHeaders, &alignData](Section* section) {
+    std::vector<uint8_t> data(totalBinarySize);
+
+    const auto serializeSection = [&data, &sectionHeaders, &dataOffset](Section* section) {
         const auto sectionData = section->m_data;
         auto sectionHeader = section->m_header;
 
-        alignData(section);
+        dataOffset = utils::alignUp(dataOffset, section->getAddrAlign());
 
         if (!sectionData.empty()) {
-            sectionHeader.sh_offset = dataOffset + data.size();
+            sectionHeader.sh_offset = dataOffset;
             sectionHeader.sh_size = sectionData.size();
         }
         sectionHeaders.push_back(sectionHeader);
-        data.insert(data.end(), sectionData.data(), sectionData.data() + sectionData.size());
+        dataOffset = Writer::writeContainerToStorageVector(data, dataOffset, sectionData, 0, sectionData.size());
     };
 
     for (auto& section : m_sections) {
@@ -102,7 +107,7 @@ std::vector<uint8_t> Writer::generateELF() {
         }
 
         auto programHeader = segment->m_header;
-        programHeader.p_offset = dataOffset + data.size();
+        programHeader.p_offset = dataOffset;
 
         for (auto& section : segment->m_sections) {
             programHeader.p_filesz += section->m_data.size();
@@ -112,6 +117,8 @@ std::vector<uint8_t> Writer::generateELF() {
         if (!segment->m_data.empty()) {
             programHeader.p_filesz += segment->m_data.size();
             data.insert(data.end(), segment->m_data.data(), segment->m_data.data() + segment->m_data.size());
+            dataOffset =
+                    Writer::writeContainerToStorageVector(data, dataOffset, segment->m_data, 0, segment->m_data.size());
         }
 
         programHeader.p_memsz = programHeader.p_filesz;
@@ -119,24 +126,16 @@ std::vector<uint8_t> Writer::generateELF() {
         programHeaders.push_back(programHeader);
     }
 
-    std::vector<uint8_t> elfBlob;
-    elfBlob.reserve(dataOffset + data.size());
+    dataOffset = writeObjectToStorageVector(data, 0, elfHeader);
 
-    elfBlob.insert(elfBlob.end(), reinterpret_cast<uint8_t*>(&elfHeader),
-                   reinterpret_cast<uint8_t*>(&elfHeader) + elfHeader.e_ehsize);
     if (elfHeader.e_shoff) {
-        elfBlob.resize(elfHeader.e_shoff, 0);
-        elfBlob.insert(elfBlob.end(), reinterpret_cast<uint8_t*>(sectionHeaders.data()),
-                       reinterpret_cast<uint8_t*>(sectionHeaders.data()) + elfHeader.e_shnum * elfHeader.e_shentsize);
+        dataOffset = writeContainerToStorageVector(data, dataOffset, sectionHeaders, 0, sectionHeaders.size());
     }
     if (elfHeader.e_phoff) {
-        elfBlob.resize(elfHeader.e_phoff, 0);
-        elfBlob.insert(elfBlob.end(), reinterpret_cast<uint8_t*>(programHeaders.data()),
-                       reinterpret_cast<uint8_t*>(programHeaders.data()) + elfHeader.e_phnum * elfHeader.e_phentsize);
+        dataOffset = writeContainerToStorageVector(data, dataOffset, programHeaders, 0, programHeaders.size());
     }
-    elfBlob.insert(elfBlob.end(), data.data(), data.data() + data.size());
 
-    return elfBlob;
+    return data;
 }
 
 Segment* Writer::addSegment() {
@@ -205,4 +204,17 @@ elf::ELFHeader Writer::generateELFHeader() const {
     fileHeader.e_shentsize = sizeof(SectionHeader);
 
     return fileHeader;
+}
+
+size_t Writer::writeRawBytesToStorageVector(std::vector<uint8_t>& storageVector, size_t storageOffset,
+                                            const uint8_t* sourceData, size_t sourceByteCount) {
+    auto storagePos = storageVector.begin() + storageOffset;
+
+    // Check storage offset and size bounds
+    VPUX_ELF_THROW_WHEN(storagePos >= storageVector.end(), RuntimeError, "Write offset out of bounds");
+    VPUX_ELF_THROW_WHEN(storagePos + sourceByteCount > storageVector.end(), RuntimeError, "Write size exceeds bounds");
+
+    std::copy_n(sourceData, sourceByteCount, storagePos);
+
+    return storageOffset + sourceByteCount;
 }

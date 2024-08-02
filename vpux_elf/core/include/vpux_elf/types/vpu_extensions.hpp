@@ -84,6 +84,18 @@ constexpr Elf_Word R_VPU_DISP28_MULTICAST_OFFSET = 9;
 ///     Where SLICE_LENGTH = 2 * 1024 * 1024
 constexpr Elf_Word R_VPU_DISP4_MULTICAST_OFFSET_CMP = 10;
 
+/// Originated from BarriersCountConfig::real_id_ relocation
+/// Formula: Dst += S + A
+constexpr Elf_Word R_VPU_16_SUM = 1011;
+
+/// Originated from DMA list relocations in case of linking to DDR
+/// Formula: Dst *= S
+constexpr Elf_Word R_VPU_64_MULT = 1012;
+
+/// Originated from the need of marking active DMA list
+/// Formula: Dst *= A - S
+constexpr Elf_Word R_VPU_64_MULT_SUB = 1013;
+
 //
 // NPU 4000 specific DPU relocs
 //
@@ -148,13 +160,6 @@ constexpr Elf_Word R_VPU_32_BIT_OR_B21_B26_UNSET_HIGH_16 = 21;
 // Formula:
 // Dst |= ((S + A) & ~B21_B26_MASK) && 0xFFFF
 constexpr Elf_Word R_VPU_32_BIT_OR_B21_B26_UNSET_LOW_16 = 22;
-
-// Used for tile select relocations of 27 bit for DMA Accelerator: bitmapBaseAddr[30:4] (16 byte aligned)
-// Formula:
-// patchAddrUnsetTile = (S + A) & ~0xE0'0000
-// patchAddr = (patchAddrUnsetTile >> 4) & (0x7FFF'FFFF >> 4) - only [30:4]
-// Dst |= patchAddr << 37;                                    - set [64:37]
-constexpr Elf_Word R_VPU_HIGH_27_BIT_OR = 23;
 
 //
 // Symbol types

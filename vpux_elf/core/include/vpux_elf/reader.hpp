@@ -116,19 +116,24 @@ public:
                               "Mismatch between expected and received section header size");
         VPUX_ELF_THROW_UNLESS(mElfHeader.e_shoff >= sizeof(mElfHeader), HeaderError,
                               "Section table overlaps ELF header");
+        VPUX_ELF_THROW_UNLESS(mElfHeader.e_shnum, HeaderError,
+                              "No sections detected, ELF blob without sections is unsupported!");
+        VPUX_ELF_THROW_UNLESS(mElfHeader.e_shstrndx < mElfHeader.e_shnum, HeaderError,
+                              "Section name index exceeds section table");
 
-        if (mElfHeader.e_shnum) {
-            mSectionHeaders.resize(mElfHeader.e_shnum);
-            readBuffer =
-                    buildBufferFromMember(&mSectionHeaders[0], mSectionHeaders.size() * sizeof(mSectionHeaders[0]));
-            mAccessManager->readExternal(mElfHeader.e_shoff, readBuffer);
+        mSectionHeaders.resize(mElfHeader.e_shnum);
+        readBuffer = buildBufferFromMember(&mSectionHeaders[0], mSectionHeaders.size() * sizeof(mSectionHeaders[0]));
+        mAccessManager->readExternal(mElfHeader.e_shoff, readBuffer);
 
-            if (mElfHeader.e_shstrndx) {
-                const auto secNamesSection = mSectionHeaders[mElfHeader.e_shstrndx];
-                mSectionNames.resize(secNamesSection.sh_size);
-                readBuffer = buildBufferFromMember(&mSectionNames[0], mSectionNames.size() * sizeof(mSectionNames[0]));
-                mAccessManager->readExternal(secNamesSection.sh_offset, readBuffer);
-            }
+        if (mElfHeader.e_shstrndx) {
+            const auto secNamesSection = mSectionHeaders[mElfHeader.e_shstrndx];
+
+            VPUX_ELF_THROW_UNLESS(secNamesSection.sh_offset + secNamesSection.sh_size <= mAccessManager->getSize(),
+                                  HeaderError, "Section name size exceeds buffer size");
+
+            mSectionNames.resize(secNamesSection.sh_size);
+            readBuffer = buildBufferFromMember(&mSectionNames[0], mSectionNames.size() * sizeof(mSectionNames[0]));
+            mAccessManager->readExternal(secNamesSection.sh_offset, readBuffer);
         }
     }
 

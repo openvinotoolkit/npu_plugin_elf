@@ -9,10 +9,10 @@
 #include <vector>
 #include <vpux_elf/types/elf_structs.hpp>
 #include <vpux_elf/types/symbol_entry.hpp>
+#include <vpux_elf/utils/version.hpp>
 #include <vpux_headers/buffer_manager.hpp>
 #include <vpux_headers/device_buffer.hpp>
 #include <vpux_headers/metadata.hpp>
-#include <vpux_elf/utils/version.hpp>
 
 namespace elf {
 
@@ -31,6 +31,11 @@ public:
      */
     virtual BufferSpecs getParsedInferenceBufferSpecs() = 0;
     /**
+     * Get buffer specs of mapped inference (entry) for specific architecture
+     * @return BufferSpecs of the mapped inference
+     */
+    virtual BufferSpecs getEntryBufferSpecs(size_t);
+    /**
      * Set the entry (mapped inference) and the resource requirements
      * for the pre-allocated DeviceBuffer that contains the current architecture
      * structure in memory
@@ -43,8 +48,8 @@ public:
      *
      * @param resReq resource requirements to be added to the host parsed inference
      */
-    virtual void setHostParsedInference(DeviceBuffer& devBuffer, uint64_t mapped_entry, ResourceRequirements resReq,
-                                        const uint64_t* perf_metrics) = 0;
+    virtual void setHostParsedInference(DeviceBuffer& devBuffer, const std::vector<uint64_t>& mapped_entry,
+                                        ResourceRequirements resReq, const uint64_t* perf_metrics) = 0;
     /**
      * Get ABI Version of current HPI/Loader
      */
@@ -54,5 +59,7 @@ public:
      * Get Mapped inference version
      */
     virtual elf::Version getStaticMIVersion() const = 0;
+
+    virtual uint32_t getArchTilesCount() const = 0;
 };
 }  // namespace elf
