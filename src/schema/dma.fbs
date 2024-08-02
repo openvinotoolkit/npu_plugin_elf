@@ -67,7 +67,7 @@ table NNDMATask {
   // of critical importance.
   set_crit: bool = false;
 
-  // NNDMATask transaction type details as specified in Section 8.5.5.3 of the NPU 3700 databook
+  // NNDMATask transaction type details
   descriptor : DMADescriptorReference;
 
   // Represents the offset from the dma_hwp_base (see fileHeader.fbs)

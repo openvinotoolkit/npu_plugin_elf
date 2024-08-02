@@ -16,10 +16,11 @@ public:
     std::vector<SymbolEntry> getSymbolTable(uint8_t index) const override;
     std::vector<elf::Elf_Word> getSymbolSectionTypes() const override;
     BufferSpecs getParsedInferenceBufferSpecs() override;
-    void setHostParsedInference(DeviceBuffer& devBuffer, uint64_t mapped_entry, ResourceRequirements resReq,
-                                const uint64_t* perf_metrics) override;
+    void setHostParsedInference(DeviceBuffer& devBuffer, const std::vector<uint64_t>& mapped_entry,
+                                ResourceRequirements resReq, const uint64_t* perf_metrics) override;
     elf::Version getELFLibABIVersion() const override;
     elf::Version getStaticMIVersion() const override;
+    uint32_t getArchTilesCount() const override;
 
 private:
     std::vector<SymbolEntry> symTab_;
@@ -27,7 +28,7 @@ private:
 
     static constexpr uint32_t VERSION_MAJOR = 1;
     static constexpr uint32_t VERSION_MINOR = 2;
-    static constexpr uint32_t VERSION_PATCH = 0;
+    static constexpr uint32_t VERSION_PATCH = 2;
 };
 
 }  // namespace elf

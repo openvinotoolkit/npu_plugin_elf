@@ -6,7 +6,9 @@
 #pragma once
 
 #include <cstring>
+#include <memory>
 #include <string>
+#include <vector>
 
 #include <vpux_elf/utils/error.hpp>
 #include <vpux_elf/utils/utils.hpp>
@@ -213,6 +215,9 @@ public:
                 sizeof(SerialDescriptor));
 
         for (auto& elem : mElements) {
+            VPUX_ELF_THROW_WHEN(
+                currentDescriptor.mElementSize * currentDescriptor.mElementCount + currentDescriptor.mDataOffset > size,
+                RuntimeError, "element is out of bound");
             currentDescriptor = deserializeElement(serialBuffer, currentDescriptor, elem);
         }
     }

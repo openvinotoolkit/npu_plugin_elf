@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache 2.0
 #
 
-cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.15 FATAL_ERROR)
 
 include( ./cmake/compiler_linker_options.cmake )
 
@@ -26,6 +26,13 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${HEADERS} ${SOURCES})
 
 add_library(${LIB_NAME} STATIC ${SOURCES})
 add_library(vpux_elf STATIC ${SOURCES})
+
+if(MSVC AND BUILD_COMPILER_FOR_DRIVER)
+    # For compiler in driver build, npu_elf or vpux_elf static lib needs to build with /MT to avoid mismatch with level zero targets.
+    # From cmake >= 3.15, the default CMAKE_MSVC_RUNTIME_LIBRARY is /MD, thus causing always overriding /MT with /MD.
+    # So here we set the target's MSVC_RUNTIME_LIBRARY to MT to avoid such overriding behavior.
+    set_target_properties(${LIB_NAME} vpux_elf PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
 
 target_compile_definitions(${LIB_NAME} PUBLIC HOST_BUILD)
 target_compile_definitions(vpux_elf PUBLIC HOST_BUILD)
@@ -54,12 +61,16 @@ endif()
 target_compile_options(${LIB_NAME} PRIVATE
     $<$<CONFIG:Release>:${UMD_COMPILER_OPTIONS_RELEASE}>
     $<$<CONFIG:Debug>:${UMD_COMPILER_OPTIONS_DEBUG}>
-    $<$<CONFIG:RelWithDebInfo>:${UMD_COMPILER_OPTIONS_RELEASE}>)
+    $<$<CONFIG:RelWithDebInfo>:${UMD_COMPILER_OPTIONS_RELEASE}>
+    # /Zf enables compiler support for faster generation of PDB files when compiled concurrently
+    $<$<CXX_COMPILER_ID:MSVC>:/Zf>)
 
 target_compile_options(vpux_elf PRIVATE
     $<$<CONFIG:Release>:${UMD_COMPILER_OPTIONS_RELEASE}>
     $<$<CONFIG:Debug>:${UMD_COMPILER_OPTIONS_DEBUG}>
-    $<$<CONFIG:RelWithDebInfo>:${UMD_COMPILER_OPTIONS_RELEASE}>)
+    $<$<CONFIG:RelWithDebInfo>:${UMD_COMPILER_OPTIONS_RELEASE}>
+    # see ${LIB_NAME} compile options
+    $<$<CXX_COMPILER_ID:MSVC>:/Zf>)
 
 # Set linker options
 target_link_options(${LIB_NAME} PRIVATE

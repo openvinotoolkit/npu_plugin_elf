@@ -77,7 +77,6 @@ table preprocessingInfo {
 }
 
 // The DPU HWP payload contents are configurable via this enum.
-// The profiling data record size is 16 bytes for NPU 3720 and 32 bytes for NPU 4000
 enum PerfDataMode : byte {
   MODE0,
   MODE1,

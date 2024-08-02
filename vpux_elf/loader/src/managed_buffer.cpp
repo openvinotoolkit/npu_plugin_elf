@@ -74,7 +74,7 @@ void AllocatedDeviceBuffer::load(const uint8_t* from, size_t count) {
 DynamicBuffer::DynamicBuffer(BufferSpecs bSpecs): ManagedBuffer(bSpecs) {
     VPUX_ELF_THROW_UNLESS(utils::isPowerOfTwo(mDefaultSafeAlignment), RuntimeError,
                           "Default safe alignment is not a power of 2");
-    VPUX_ELF_THROW_WHEN((bSpecs.alignment > mDefaultSafeAlignment) && ((bSpecs.alignment % 2) != 0), RuntimeError,
+    VPUX_ELF_THROW_UNLESS(utils::isPowerOfTwo(bSpecs.alignment), RuntimeError,
                         "Requested alignment is not a power of 2");
 
     size_t bufferSize, bufferAlignment;

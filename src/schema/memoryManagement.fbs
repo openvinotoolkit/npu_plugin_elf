@@ -71,8 +71,6 @@ table BinaryData{
   // to the serialized network.
 
   // FlatBuffers internally align to the size of the datatype.
-  // As there are several things that perform better (or perform at all)
-  // when aligned to 64bit, we can pack values inside many unsigned longs.
   underlying_type: DType;
   length: ulong;
 
@@ -119,8 +117,9 @@ table KernelData{
   // given inference. They can represent any kernel related buffer such as code or invocation data.
   // There can be many KernelDatas as part of the graphfile.
 
-
   // FlatBuffers internally align to the size of the datatype.
+  // As there are several things that perform better (or perform at all)
+  // when aligned to 64bit, we can pack values inside many unsigned longs.
   length: ulong;
 
   // This nasty padding is to ensure 64 Byte alignment, along with changes in the Fathom compiler.
@@ -209,12 +208,12 @@ table TensorReference {
   // Density rate of the tensor [0-> fully sparse, 1-> fully dense]
   // This field is used only in simulation
   density_rate: float = 1;
-
   // Enable the swizzling key for the tensor.
   swizzling_key: ubyte = 0;
 
   // Alternative tensor shape representation for network with 'dynamic' data/behavior.
   dimsTensor: TensorReference; // alternative representation for dimensions (U32 1D tensor)
+
   stridesTensor: TensorReference; // alternative representation for strides (FP32 1D tensor)
 
   // Configuration for the IDU base_offset or ODU base_ptr registers.

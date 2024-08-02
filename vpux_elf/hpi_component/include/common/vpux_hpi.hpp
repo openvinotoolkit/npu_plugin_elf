@@ -6,15 +6,15 @@
 #pragma once
 
 #include <memory>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 #include <vpux_elf/accessor.hpp>
+#include <vpux_elf/utils/version.hpp>
 #include <vpux_headers/buffer_manager.hpp>
 #include <vpux_headers/device_buffer.hpp>
 #include <vpux_headers/managed_buffer.hpp>
 #include <vpux_headers/metadata.hpp>
 #include <vpux_headers/platform.hpp>
-#include <vpux_elf/utils/version.hpp>
 
 namespace elf {
 
@@ -70,14 +70,15 @@ private:
     AccessManager* accessManager;
     std::shared_ptr<NetworkMetadata> metadata;
     std::shared_ptr<elf::platform::PlatformInfo> platformInfo;
-    std::unique_ptr<VPUXLoader> loader;
+    std::vector<std::unique_ptr<VPUXLoader>> loaders;
     std::shared_ptr<AllocatedDeviceBuffer> parsedInference;
     elf::HPIConfigs hpiCfg;
+    std::shared_ptr<AllocatedDeviceBuffer> entries;
 
     // helpers
     void readMetadata();
     void readPlatformInfo();
-    const uint64_t* readPerfMetrics();
+    std::shared_ptr<ManagedBuffer> readPerfMetrics();
     elf::Version readVersioningInfo(uint32_t versionType) const;
 };
 

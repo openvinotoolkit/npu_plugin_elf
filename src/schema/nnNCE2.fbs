@@ -235,12 +235,6 @@ table NCEInvariantFields {
   // This contains meta information about the weights and other parameters such as bias and scale.
   weights_table: TensorReference;
 
-  activation_window: TensorReference;
-
-  // This value is a temporary hack to give the original length
-  // of each activation window per channel before it is aligned to 16.
-  activation_window_channel_length: int;
-
   enabled_optimizations: [NN2Optimization];
 
   modified_kernelH: short = 0 (deprecated);
@@ -273,7 +267,7 @@ table NCEInvariantFields {
   is_superdense: bool = false;
 
   /// in case of segmentation the DPU needs to know how many lines are in
-  /// neighbouring clusters
+  /// neighbouring clusters.
   segment_height: [uint16];
 
   /// Configures a permutation to apply to the output.
@@ -321,6 +315,7 @@ table NCEVariantFields{
     workload_end_Z: uint16;
 
     /// FlexNN dataflow description for NPU 4000
+
     /// [OX, OY, IC, OC, FX, FY, DC]
     flex_map_column: [uint8];
 
@@ -337,7 +332,7 @@ table NCEVariantFields{
     flex_outer_order: [uint8];
 
     // If present, the location to which profiling data for this variant
-    // should be written. This field is valid only for NPU 3700.
+    // should be written.
     profiling_data: TensorReference;
 
     // List of Halo Regions

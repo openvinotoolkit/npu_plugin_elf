@@ -11,4 +11,9 @@ std::vector<elf::Elf_Word> HostParsedInferenceCommon::getSymbolSectionTypes() co
     return {};
 }
 
+BufferSpecs HostParsedInferenceCommon::getEntryBufferSpecs(size_t numOfEntries) {
+    (void)numOfEntries;
+    return {};
+}
+
 }  // namespace elf

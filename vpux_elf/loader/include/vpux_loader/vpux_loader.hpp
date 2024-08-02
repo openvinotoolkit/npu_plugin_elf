@@ -59,6 +59,7 @@ private:
 public:
     VPUXLoader(AccessManager* accessor, BufferManager* bufferManager);
     VPUXLoader(const VPUXLoader& other);
+    VPUXLoader(const VPUXLoader& other, const std::vector<SymbolEntry>& runtimeSymTabs);
     VPUXLoader(VPUXLoader&& other) = delete;
     VPUXLoader& operator=(const VPUXLoader&);
     VPUXLoader& operator=(const VPUXLoader&&) = delete;
@@ -66,7 +67,7 @@ public:
 
     void load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTabOverrideMode = false,
               const std::vector<elf::Elf_Word>& symbolSectionTypes = {});
-    uint64_t getEntry();
+    elf::DeviceBufferContainer::BufferPtr getEntry();
 
     void applyJitRelocations(std::vector<DeviceBuffer>& inputs, std::vector<DeviceBuffer>& outputs,
                              std::vector<DeviceBuffer>& profiling);
@@ -75,7 +76,7 @@ public:
     std::vector<DeviceBuffer> getInputBuffers() const;
     std::vector<DeviceBuffer> getOutputBuffers() const;
     std::vector<DeviceBuffer> getProfBuffers() const;
-    std::vector<DeviceBuffer> getSectionsOfType(elf::Elf_Word type);
+    std::vector<std::shared_ptr<ManagedBuffer>> getSectionsOfType(elf::Elf_Word type);
 
 private:
     bool checkSectionType(const elf::SectionHeader* section, Elf_Word secType) const;
