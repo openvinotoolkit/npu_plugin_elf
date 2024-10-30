@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -24,8 +23,8 @@ public:
     using BufferPtr = std::shared_ptr<BufferType>;
 
     struct BufferInfo {
-        BufferPtr mBuffer;
-        BufferDetails mBufferDetails;
+        BufferPtr mBuffer = nullptr;
+        BufferDetails mBufferDetails = {};
     };
 
     using BufferMap = std::unordered_map<size_t, BufferInfo>;
@@ -37,10 +36,23 @@ public:
     DeviceBufferContainer& operator=(const DeviceBufferContainer& rhs);
     DeviceBufferContainer& operator=(DeviceBufferContainer&&) = default;
 
+    auto cbegin() const {
+        return mBufferMap.cbegin();
+    }
+    auto cend() const {
+        return mBufferMap.cend();
+    }
+    auto begin() {
+        return mBufferMap.begin();
+    }
+    auto end() {
+        return mBufferMap.end();
+    }
+
     BufferPtr buildAllocatedDeviceBuffer(BufferSpecs bSpecs);
-    bool hasBufferInfoAtIndex(size_t index);
+    BufferInfo& safeInitBufferInfoAtIndex(size_t index);
     BufferInfo& getBufferInfoFromIndex(size_t index);
-    void replaceBufferInfoAtIndex(size_t index, BufferInfo bufferInfo);
+    bool hasBufferInfoAtIndex(size_t index);
     size_t getBufferInfoCount();
     std::vector<DeviceBuffer> getBuffersAsVector() const;
 

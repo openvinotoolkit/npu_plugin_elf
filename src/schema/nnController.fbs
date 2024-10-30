@@ -54,15 +54,6 @@ table EmptyTask{
   id: uint;
 }
 
-table UPAStartSHVTask{
-  // This task will trigger a shave to start executing its currently loaded kernel
-  id: uint;
-}
-
-table UPAEndSHVTask{
-  // This task will trigger a shave to cease and be free to load its next work.
-  id: uint;
-}
 table NNStartSHVTask{
   // This task will trigger a shave to start executing its currently loaded kernel
   id: uint;
@@ -78,8 +69,6 @@ union ControllerSubTask{
   BarrierConfigurationTask,
   AddToNCE2CMXBacklogTask,
   AddToNNDMABacklogTask,
-  UPAStartSHVTask,
-  UPAEndSHVTask,
   NNStartSHVTask,
   NNEndSHVTask,
   EmptyTask,

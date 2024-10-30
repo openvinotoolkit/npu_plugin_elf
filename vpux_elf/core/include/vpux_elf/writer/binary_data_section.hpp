@@ -23,10 +23,10 @@ public:
     }
 
     size_t appendData(const T* obj, size_t sizeInElements) {
-        const auto offset = m_data.size();
-        m_data.insert(m_data.end(), reinterpret_cast<const uint8_t*>(obj),
-                      reinterpret_cast<const uint8_t*>(obj) + sizeInElements * sizeof(T));
-        return offset;
+        writeRawBytesToElfStorageVector(reinterpret_cast<const uint8_t*>(obj), sizeInElements * sizeof(T));
+        // return value is meaningless with memory consumption optimization
+        // E#136375
+        return 0;
     }
 
     T* expandData(size_t sizeInElements) {
@@ -40,7 +40,7 @@ public:
     }
 
 private:
-    explicit BinaryDataSection(const std::string& name, const Elf_Word section_type = SHT_PROGBITS) : Section(name) {
+    explicit BinaryDataSection(const std::string& name, const Elf_Word section_type = SHT_PROGBITS): Section(name) {
         static_assert(std::is_standard_layout<T>::value, "Only POD types are supported");
         m_header.sh_type = section_type;
         m_header.sh_entsize = sizeof(T);
@@ -49,5 +49,5 @@ private:
     friend Writer;
 };
 
-} // namespace writer
-} // namespace elf
+}  // namespace writer
+}  // namespace elf

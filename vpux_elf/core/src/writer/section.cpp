@@ -5,12 +5,16 @@
 
 //
 
+#include <vpux_elf/utils/error.hpp>
 #include <vpux_elf/writer/section.hpp>
+
+#include <algorithm>
+#include <iostream>
 
 using namespace elf;
 using namespace elf::writer;
 
-Section::Section(const std::string& name) : m_name(name) {
+Section::Section(const std::string& name): m_name(name) {
     m_header.sh_name = 0;
     m_header.sh_type = SHT_NULL;
     m_header.sh_flags = 0;
@@ -47,6 +51,18 @@ void Section::setAddr(Elf64_Addr addr) {
     m_header.sh_addr = addr;
 }
 
+Elf64_Off Section::getOffset() const {
+    return m_header.sh_offset;
+}
+
+Elf_Xword Section::getSize() const {
+    return m_header.sh_size;
+}
+
+void Section::setSize(Elf_Xword size) {
+    m_header.sh_size = size;
+}
+
 Elf_Xword Section::getFlags() const {
     return m_header.sh_flags;
 }
@@ -71,7 +87,8 @@ size_t Section::getFileAlignRequirement() const {
     return m_fileAlignRequirement;
 }
 
-void Section::finalize() {}
+void Section::finalize() {
+}
 
 void Section::setIndex(size_t index) {
     m_index = index;
@@ -85,6 +102,18 @@ size_t Section::getIndex() const {
     return m_index;
 }
 
-size_t Section::getDataSize() const {
-    return m_data.size();
+uint8_t* Section::getCurrentWriteAddr() const {
+    return m_startAddr + m_currentWriteOffset;
+}
+
+void Section::shiftCurrentWriteAddr(size_t shiftInBytes) {
+    m_currentWriteOffset += shiftInBytes;
+}
+
+void Section::writeRawBytesToElfStorageVector(const uint8_t* sourceData, size_t sourceByteCount) {
+    VPUX_ELF_THROW_WHEN(m_startAddr == nullptr, RuntimeError, "Section start address not set");
+    VPUX_ELF_THROW_WHEN(m_currentWriteOffset + sourceByteCount > getSize(), RuntimeError, "Write out of bounds");
+
+    std::copy_n(sourceData, sourceByteCount, getCurrentWriteAddr());
+    shiftCurrentWriteAddr(sourceByteCount);
 }

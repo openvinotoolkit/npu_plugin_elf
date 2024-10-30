@@ -13,7 +13,7 @@
 
 namespace elf {
 
-static_assert(sizeof(size_t) >= sizeof(uintptr_t));
+static_assert(sizeof(size_t) >= sizeof(uintptr_t), "");
 
 ManagedBuffer::ManagedBuffer(BufferSpecs bSpecs): mDevBuffer(), mBufferSpecs(bSpecs), mUserPrivateData(nullptr) {
 }
@@ -102,7 +102,7 @@ StaticBuffer::StaticBuffer(uint8_t* cpuAddr, BufferSpecs bSpecs): ManagedBuffer(
     mDevBuffer = DeviceBuffer(cpuAddr, reinterpret_cast<uintptr_t>(cpuAddr), mBufferSpecs.size);
 }
 
-StaticBuffer::StaticBuffer(StaticBuffer&& other): ManagedBuffer(mBufferSpecs) {
+StaticBuffer::StaticBuffer(StaticBuffer&& other): ManagedBuffer(other.mBufferSpecs) {
     mDevBuffer = other.mDevBuffer;
     other.mDevBuffer = DeviceBuffer();
 }

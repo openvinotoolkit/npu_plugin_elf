@@ -11,15 +11,14 @@ enum MemoryLocation : byte {
   VPU_DDR_Heap = 3,        // "Scratch Memory" for intermediary and temporal values needed for execution. No guarantee of initalized values.
   GraphFile = 4,           // Tensor is contained within the "binary_data" section of this graphfile
   VPU_CMX_NN = 5,          // Fast CMX Memory Connected to the NN Subprocessors
-  VPU_CMX_UPA = 6,         // Fast CMX Memory Connected to the UPA Subprocessors
-  VPU_DDR_BSS = 7,         // Similar "Scratch Memory" to "VPU_DDR_Heap", this explicitly guarantees zero initialization
-  VPU_CSRAM = 8,           // Shared Memory
-  AbsoluteAddr = 9,        // Absolute address
-  MAC_Accumulators = 10,   // MAC accumulators
-  ProfilingOutput = 11,    // Profiling output location retrieved/populated by device api users.
-  GFEmbeddedKernel = 12,   // Tensor is contained within the "kernel_data" section of this graphfile
-  KernelsBuffer = 13,      // An externally provided contiguous buffer of Activation Kernel ELFs
-  ExternalFile = 14,        // Tensor is contained within weights.dat
+  VPU_DDR_BSS = 6,         // Similar "Scratch Memory" to "VPU_DDR_Heap", this explicitly guarantees zero initialization
+  VPU_CSRAM = 7,           // Shared Memory
+  AbsoluteAddr = 8,        // Absolute address
+  MAC_Accumulators = 9,   // MAC accumulators
+  ProfilingOutput = 10,    // Profiling output location retrieved/populated by device api users.
+  GFEmbeddedKernel = 11,   // Tensor is contained within the "kernel_data" section of this graphfile
+  KernelsBuffer = 12,      // An externally provided contiguous buffer of Activation Kernel ELFs
+  ExternalFile = 13,        // Tensor is contained within weights.dat
 }
 
 enum DType : byte {
@@ -58,7 +57,7 @@ enum DType : byte {
 
   // Unsigned Integers (cont.)
   U4 = 20,
-
+  
   // FP8 specific types
   BF8 = 21,  // (E5M2) "Brain Float 8"
   HF8 = 22,  // (E4M3) "Hybrid Float 8"
@@ -108,7 +107,7 @@ table BinaryData{
 
   // Marks tensors which should be copied to CSRAM
   // Only such tensors can be copied which will be read back by NN DMA
-  // e.g. weights/parameters of SW layers read by UPA shaves/UPA DMA have to remain uncached
+  // e.g. weights/parameters of SW layers read by shaves/DMA have to remain uncached
   csram_cacheable: bool;
 }
 
@@ -116,6 +115,11 @@ table KernelData{
   // KernelData exists as a separately indexed collection of activation kernels for a
   // given inference. They can represent any kernel related buffer such as code or invocation data.
   // There can be many KernelDatas as part of the graphfile.
+  // Together they contain all known Kernels that are part of the serialized network.
+  //
+  // It would be more elegant to do this via a flatbuffer Union,
+  // but this layout is more performant.
+
 
   // FlatBuffers internally align to the size of the datatype.
   // As there are several things that perform better (or perform at all)
@@ -218,7 +222,7 @@ table TensorReference {
 
   // Configuration for the IDU base_offset or ODU base_ptr registers.
   base_ptrs: [ushort];
-
+  
   // If descriptor is set then it is an address of an indirect directml data descriptor.
   descriptor: ulong;
 
@@ -240,7 +244,6 @@ table KernelDataReference {
   locale: MemoryLocation;
 
   // When `locale = GFEmbeddedKernel`, this value indexes which KernelData is being referenced from GraphFile:kernel_data.
-  // When `locale != GFEmbeddedKernel`, the offset from the start of a KernelsBuffer or AbsoluteAddr
   locale_offset: uint32;
 
   // The offset from the above selected `locale_offset`, i.e. where the .text or .data actually starts inside the ELF referenced by the KDR

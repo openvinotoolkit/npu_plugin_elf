@@ -11,7 +11,7 @@ The versioning system is composed of the following three components:
 
 - **Version Patch** - Changes that don't affect compatibility in any way.
 
-Due to the "double" implementation for HPI, with different versions for NPU37XX and NPU4000+, there are 2 versioning systems that track them independently.
+Due to the "double" implementation for HPI, with different versions for NPU3720 and NPU4000+, there are 2 versioning systems that track them independently.
 
 ## **Version checks**
 
@@ -41,7 +41,7 @@ Accompanying any ELF Library change, the Version must be incremented according t
 
 In addition, the changes might fall in one of the following 3 cathegories:
 
-- changes affecting NPU37XX only -> only HPI3720 version needs updating
+- changes affecting NPU3720 only -> only HPI3720 version needs updating
 - changes affecting NPU4000+ only -> only HPI4000 version needs updating
 - changes affecting all architecutres -> both HPI3720 & HPI4000 versions need to be updated
 

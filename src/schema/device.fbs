@@ -6,18 +6,16 @@ enum PhysicalProcessor : byte {
     // Enum for describing processor resources
     NULL = 0, // This is either an invalid processor, or a conceptual one that cannot be computed on.
     LEON_RT = 1,
-    UPA_SHV = 2,
-    LEON_NN = 3,
-    NN_SHV = 4,
-    ARM = 5,
-    NCE_Cluster = 6,
-    NCE_PerClusterDPU = 7
+    LEON_NN = 2,
+    NN_SHV = 3,
+    ARM = 4,
+    NCE_Cluster = 5,
+    NCE_PerClusterDPU = 6
 }
 
 enum DMAEngine : byte{
     NULL = 0,
-    UPA = 1,
-    NN = 2
+    NN = 1
 }
 
 // Flatbuffers does not compile the full name, so shorted to Mem
@@ -26,9 +24,8 @@ enum PhysicalMem : byte {
     // and MemoryLoc ation represents conceptual addressing.
     NULL = 0, // This is either an invalid location, or a conceptual one that cannot be computed on.
     DDR = 1,
-    UPA_CMX = 2,
-    NN_CMX = 3,
-    CSRAM = 4
+    NN_CMX = 2,
+    CSRAM = 3
 }
 
 // Constructs to show relations and quantities

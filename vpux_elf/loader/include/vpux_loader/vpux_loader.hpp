@@ -11,11 +11,9 @@
 #define VPUX_ELF_LOG_UNIT_NAME "VpuxLoader"
 #endif
 
-#include <array>
 #include <functional>
 #include <map>
 #include <memory>
-#include <string>
 #include <vector>
 
 #include <vpux_elf/accessor.hpp>
@@ -80,15 +78,18 @@ public:
 
 private:
     bool checkSectionType(const elf::SectionHeader* section, Elf_Word secType) const;
-    void registerUserIO(std::vector<DeviceBuffer>& io, const elf::SymbolEntry* symbols, size_t symbolCount) const;
+    void earlyFetchIO(const elf::Reader<Elf64>::Section& section);
+    void registerUserIO(std::vector<DeviceBuffer>& userIO, const elf::SymbolEntry* symbols, size_t symbolCount) const;
 
     void updateSharedBuffers(const std::vector<std::size_t>& relocationSectionIndexes);
+    void loadBuffers();
     void reloadNewBuffers();
     void applyRelocations(const std::vector<std::size_t>& relocationSectionIndexes);
 
     BufferManager* m_bufferManager;
     std::shared_ptr<Reader<ELF_Bitness::Elf64>> m_reader;
-    DeviceBufferContainer m_bufferContainer;
+    DeviceBufferContainer m_inferBufferContainer;
+    DeviceBufferContainer m_backupBufferContainer;
     std::vector<SymbolEntry> m_runtimeSymTabs;
 
     std::shared_ptr<std::vector<std::size_t>> m_relocationSectionIndexes;

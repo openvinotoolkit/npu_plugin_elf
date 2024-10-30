@@ -10,8 +10,8 @@
 
 #include <vpux_elf/types/symbol_entry.hpp>
 
-#include <iostream>
 #include <fstream>
+#include <iostream>
 #include <vector>
 
 int main(int argc, char* argv[]) {
@@ -24,7 +24,7 @@ int main(int argc, char* argv[]) {
     std::vector<uint8_t> elfBlob((std::istreambuf_iterator<char>(stream)), (std::istreambuf_iterator<char>()));
     stream.close();
 
-    elf::ElfDDRAccessManager elfAccess(elfBlob.data(), elfBlob.size());
+    elf::DDRAccessManager<elf::DDRAlwaysEmplace> elfAccess(elfBlob.data(), elfBlob.size());
 
     elf::Reader<elf::ELF_Bitness::Elf64> reader(&elfAccess);
 

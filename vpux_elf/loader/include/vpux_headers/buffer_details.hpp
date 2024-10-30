@@ -6,10 +6,9 @@
 #pragma once
 
 struct BufferDetails {
-    bool mIsProcessed;
-    bool mIsShared;
-    bool mHasData;
+    bool mHasData = false;
+    bool mIsShared = false;
+    bool mIsProcessed = false;
 
-    BufferDetails(): mIsProcessed(false), mIsShared(false), mHasData(false) {
-    }
+    BufferDetails() = default;
 };

@@ -131,7 +131,8 @@ table ActKernelInvocation{
   /// The compiler needs to specify the tile directly.
   tile: uint32;
 
-  /// Adding fields to the schema such that we can use the tensor dimensions for performance predictions.
+  /// Adding fields to the schema such that we can use the tensor dimensions
+  /// for performance predictions.
   inputTensors: [TensorReference];
   outputTensors: [TensorReference];
 }

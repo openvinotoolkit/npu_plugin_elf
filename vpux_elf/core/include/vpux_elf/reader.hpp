@@ -10,7 +10,6 @@
 #include <vpux_elf/types/data_types.hpp>
 #include <vpux_elf/types/elf_header.hpp>
 #include <vpux_elf/types/elf_structs.hpp>
-#include <vpux_elf/types/program_header.hpp>
 #include <vpux_elf/types/section_header.hpp>
 #include <vpux_elf/types/vpu_extensions.hpp>
 #include <vpux_elf/utils/error.hpp>
@@ -52,26 +51,36 @@ public:
             return mName;
         }
 
+        // API to retrieve a pointer to the start of the data buffer owned by the Section object
+        // This API is particularly useful for user code which does not want the overhead to keep ownership of the data
+        // buffer
         template <typename T>
         const T* getData() const {
-            return reinterpret_cast<const T*>(getDataBuffer()->getBuffer().cpu_addr());
+            if (!mDataBuffer) {
+                mDataBuffer = getDataBuffer();
+            }
+            return reinterpret_cast<const T*>(mDataBuffer->getBuffer().cpu_addr());
         }
 
-        std::shared_ptr<ManagedBuffer> getDataBuffer() const {
-            if (!mDataBuffer) {
-                // SHT_NOBITS - sections can have a size greater than the file
-                // which will cause offset out of bounds.
-                // VPU_SHT_CMX_METADATA - does not contain data in the binary file, so avoid reading
-                // VPU_SHT_CMX_WORKSPACE - does not contain data in the binary file, so avoid reading
-                if (!((mHeader->sh_type == SHT_NOBITS) || (mHeader->sh_type == VPU_SHT_CMX_METADATA) ||
-                      mHeader->sh_type == VPU_SHT_CMX_WORKSPACE)) {
-                    mDataBuffer = mAccessManager->readInternal(
-                            mHeader->sh_offset,
-                            BufferSpecs(mHeader->sh_addralign, mHeader->sh_size, mHeader->sh_flags));
-                }
+        // API to retrieve a buffer with the data corresponding to the Section object
+        // This API is useful for higher level semantics, particularly for sharing large sections between
+        // different parts of user code
+        std::shared_ptr<ManagedBuffer> getDataBuffer(bool cpuOnlyAccess = false) const {
+            std::shared_ptr<ManagedBuffer> buffer = nullptr;
+
+            // E#73309
+            // SHT_NOBITS - sections can have a size greater than the file
+            // which will cause offset out of bounds.
+            // VPU_SHT_CMX_METADATA - does not contain data in the binary file, so avoid reading
+            // VPU_SHT_CMX_WORKSPACE - does not contain data in the binary file, so avoid reading
+            if (!((mHeader->sh_type == SHT_NOBITS) || (mHeader->sh_type == VPU_SHT_CMX_METADATA) ||
+                  mHeader->sh_type == VPU_SHT_CMX_WORKSPACE)) {
+                buffer = mAccessManager->readInternal(
+                        mHeader->sh_offset,
+                        BufferSpecs(mHeader->sh_addralign, mHeader->sh_size, cpuOnlyAccess ? 0 : mHeader->sh_flags));
             }
 
-            return mDataBuffer;
+            return buffer;
         }
 
     private:
@@ -79,25 +88,6 @@ public:
         const typename ElfTypes<B>::SectionHeader* mHeader = nullptr;
         const char* mName = nullptr;
         mutable std::shared_ptr<ManagedBuffer> mDataBuffer;
-    };
-
-    class Segment {
-    public:
-        Segment(const typename ElfTypes<B>::ProgramHeader* programHeader, const uint8_t* data)
-                : mProgramHeader(programHeader), mData(data) {
-        }
-
-        const typename ElfTypes<B>::ProgramHeader* getHeader() const {
-            return mProgramHeader;
-        }
-
-        const uint8_t* getData() const {
-            return mData;
-        }
-
-    private:
-        const typename ElfTypes<B>::ProgramHeader* mProgramHeader = nullptr;
-        const uint8_t* mData = nullptr;
     };
 
 public:
@@ -146,22 +136,17 @@ public:
         return mElfHeader.e_shnum;
     }
 
-    size_t getSegmentsNum() const {
-        VPUX_ELF_THROW_UNLESS(mElfHeader.e_phnum <= 1000, ArgsError, "Invalid e_phnum");
-        return mElfHeader.e_phnum;
-    }
-
     const Section& getSection(size_t index) const {
         VPUX_ELF_THROW_WHEN(index >= mElfHeader.e_shnum, RangeError, "Section index out of bounds");
 
-        if (mSectionsCache.find(index) != mSectionsCache.end()) {
-            return mSectionsCache[index];
+        if (auto it = mSectionsCache.find(index); it != mSectionsCache.end()) {
+            return it->second;
         }
 
         const auto& secHeader = mSectionHeaders[index];
         const auto name = &mSectionNames[secHeader.sh_name];
 
-        return mSectionsCache[index] = Section(mAccessManager, &secHeader, name);
+        return mSectionsCache.insert(std::make_pair(index, Section(mAccessManager, &secHeader, name))).first->second;
     }
 
 private:
@@ -170,7 +155,6 @@ private:
 
     typename ElfTypes<B>::ELFHeader mElfHeader;
     std::vector<typename ElfTypes<B>::SectionHeader> mSectionHeaders;
-    std::vector<typename ElfTypes<B>::ProgramHeader> mProgramHeaders;
     std::vector<char> mSectionNames;
 
     mutable std::unordered_map<size_t, Section> mSectionsCache;

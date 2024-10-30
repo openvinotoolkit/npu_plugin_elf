@@ -103,3 +103,20 @@ if(NOT BUILD_SHARED_LIBS)
             ARCHIVE DESTINATION ${IE_CPACK_ARCHIVE_PATH} COMPONENT ${VPUX_PLUGIN_COMPONENT}
             LIBRARY DESTINATION ${IE_CPACK_LIBRARY_PATH} COMPONENT ${VPUX_PLUGIN_COMPONENT})
 endif()
+
+# This cmake code snippet should always be put at the end to make sure it's not updated finally.
+if(MSVC AND BUILD_COMPILER_FOR_DRIVER)
+    # To avoid the RuntimeLibrary mismatch in #E-109895 and #E-111901
+    # Check targets's msvc runtime for 1click pipeline flow which isn't covered in NPU plugin's repo pr-check
+    set(MODULE_DIR "build-modules")
+    if(NOT ${PROJECT_BINARY_DIR} MATCHES ${MODULE_DIR})
+        get_target_property(LIB_MSVC_RUNTIME_LIBRARY ${LIB_NAME} MSVC_RUNTIME_LIBRARY)
+        get_target_property(VPUX_ELF_LIB_MSVC_RUNTIME_LIBRARY vpux_elf MSVC_RUNTIME_LIBRARY)
+        if(NOT LIB_MSVC_RUNTIME_LIBRARY STREQUAL "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+            message(FATAL_ERROR "${LIB_NAME} CMAKE_MSVC_RUNTIME_LIBRARY is not MT[d], is ${LIB_MSVC_RUNTIME_LIBRARY}, exiting")
+        endif()
+        if(NOT VPUX_ELF_LIB_MSVC_RUNTIME_LIBRARY STREQUAL "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+            message(FATAL_ERROR "vpux_elf CMAKE_MSVC_RUNTIME_LIBRARY is not MT[d], is ${VPUX_ELF_LIB_MSVC_RUNTIME_LIBRARY}, exiting")
+        endif()
+    endif()
+endif()
