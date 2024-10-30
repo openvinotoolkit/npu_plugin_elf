@@ -10,7 +10,7 @@
 using namespace elf;
 using namespace elf::writer;
 
-StringSection::StringSection(const std::string& name) : Section(name) {
+StringSection::StringSection(const std::string& name): Section(name) {
     m_header.sh_type = SHT_STRTAB;
     m_data.push_back('\0');
 }
@@ -23,6 +23,7 @@ size_t StringSection::addString(const std::string& name) {
     const auto pos = m_data.size();
     const auto str = name.c_str();
     m_data.insert(m_data.end(), str, str + name.size() + 1);
+    setSize(m_data.size());
 
     return pos;
 }

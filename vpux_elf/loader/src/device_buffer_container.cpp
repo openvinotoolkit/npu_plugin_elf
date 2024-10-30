@@ -3,7 +3,10 @@
 // SPDX-License-Identifier: Apache 2.0
 //
 
+#include <utility>
 #include <vpux_headers/device_buffer_container.hpp>
+#include "vpux_elf/utils/error.hpp"
+#include "vpux_elf/utils/utils.hpp"
 
 namespace elf {
 
@@ -31,18 +34,18 @@ DeviceBufferContainer::BufferPtr DeviceBufferContainer::buildAllocatedDeviceBuff
     return std::make_shared<AllocatedDeviceBuffer>(mBufferManager, bSpecs);
 }
 
-bool DeviceBufferContainer::hasBufferInfoAtIndex(size_t index) {
-    return (mBufferMap.find(index) != mBufferMap.end());
+DeviceBufferContainer::BufferInfo& DeviceBufferContainer::safeInitBufferInfoAtIndex(size_t index) {
+    VPUX_ELF_THROW_WHEN(hasBufferInfoAtIndex(index), RuntimeError, "BufferInfo already exists at requested index");
+
+    return mBufferMap[index] = {};
 }
 
 DeviceBufferContainer::BufferInfo& DeviceBufferContainer::getBufferInfoFromIndex(size_t index) {
-    VPUX_ELF_THROW_UNLESS(hasBufferInfoAtIndex(index), ArgsError, "Unknown buffer index requested");
-    return mBufferMap[index];
+    return mBufferMap.at(index);
 }
 
-void DeviceBufferContainer::replaceBufferInfoAtIndex(size_t index, BufferInfo bufferInfo) {
-    mBufferMap.erase(index);
-    mBufferMap[index] = bufferInfo;
+bool DeviceBufferContainer::hasBufferInfoAtIndex(size_t index) {
+    return (mBufferMap.find(index) != mBufferMap.end());
 }
 
 size_t DeviceBufferContainer::getBufferInfoCount() {

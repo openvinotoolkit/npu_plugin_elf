@@ -1167,61 +1167,6 @@ union SoftwareLayerParams{
 
 // ------- NN SOFTWARE LAYERS TASKS ------- //
 
-// This describes a UPA Shave layer to be dispatched from the runtime.
-// It is implicitly a software layer.
-//
-// A software layer is composed of three parts:
-//  1) a layer specific set of parameters
-//  2) a leon code preamble that is run before the shave kernel
-//  3) the shave kernel itself
-//
-// Firmware layers:
-// leon preamble, layer kernel, and params handling are implicit to the chosen SoftwareLayerParam.
-// The compiler is expected to correctly configure the soft layer params. The underlying dispatcher
-// handles everything else.
-//
-// Custom Layers: See above.
-//
-table UPALayerTask{
-  // Specify the maximum number of shaves this layer can use.
-  maxShaves: ubyte = 0;
-
-  // Allows the GF to configure soft layer specific parameters.
-  // The SoftwareLayerParam type implies the soft layer type.
-  softLayerParams: SoftwareLayerParams;
-
-  // These are deprecated in favor of the input and output vectors below
-  // They cannot be marked deprecated or the runtime will not be able to run older blobs correctly
-  input_data: TensorReference;
-  output_data: TensorReference;
-  weights_data: TensorReference;
-  weights_table: TensorReference;
-
-  // All inputs for this layer. There is a maximum number supported by the runtime (currently 8)
-  inputs: [TensorReference];
-  // All outputs for this layer. There is a maximum number supported by the runtime (currently 4)
-  outputs: [TensorReference];
-
-  // If a newtwork satisfies the following criteria:
-  // - the final layers in a network are linearly dependent
-  // - all those layers are UPA software layers, i.e. the linear list is a contiguous block of
-  //   UPALayerTask(s)
-  // Then the compiler can choose to:
-  // - set ALL of these layers as "trailing layers" via isTrailingSWLayer=true
-  // - and NOT issues barriers between these layers
-  //
-  // If the above are satisfied, The Inference Runtime will attempt to pipeline execution of
-  // parallel inference threads by releasing the DPU context lock from an inference thread before
-  // the "trailing layers" are run.
-  isTrailingSWLayer: bool = false;
-
-  // If present, the location to which profiling data should be written.
-  // It is expected that UPA task interact only with DDR so
-  // compiler should refer to DDR memory in this field.
-  profiling_data: TensorReference;
-}
-
-// TODO: write me
 table SNNLayerTask{
   // Allows the GF to configure soft layer specific parameters.
   // The SoftwareLayerParam type implies the soft layer type.

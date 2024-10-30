@@ -60,6 +60,9 @@ public:
      */
     virtual elf::Version getStaticMIVersion() const = 0;
 
+    /**
+     * Get number of tiles
+     */
     virtual uint32_t getArchTilesCount() const = 0;
 };
 }  // namespace elf

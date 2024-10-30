@@ -6,6 +6,7 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
 #include <vpux_headers/buffer_manager.hpp>
 #include <vpux_headers/buffer_specs.hpp>
@@ -77,24 +78,24 @@ public:
     std::unique_ptr<ManagedBuffer> createNew() const override;
 };
 
-
 /**
  * Class wrapper which ensures that a locked buffer will be unlocked in case of
  * an event that prevents further execution.
-*/
+ */
 class ElfBufferLockGuard {
 public:
     ElfBufferLockGuard(ManagedBuffer* devBuff) {
-        if(devBuff) {
+        if (devBuff) {
             mDevBuffer = devBuff;
             mDevBuffer->lock();
         }
     }
     ~ElfBufferLockGuard() {
-        if(mDevBuffer) {
+        if (mDevBuffer) {
             mDevBuffer->unlock();
         }
     }
+
 private:
     ManagedBuffer* mDevBuffer = nullptr;
 };

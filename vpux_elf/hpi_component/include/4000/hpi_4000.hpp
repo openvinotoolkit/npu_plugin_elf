@@ -8,11 +8,13 @@
 #include <hpi_common_interface.hpp>
 #include <vpux_headers/buffer_manager.hpp>
 #include <vpux_headers/device_buffer.hpp>
+#include <vpux_headers/platform.hpp>
 
 namespace elf {
 class HostParsedInference_4000 : public HostParsedInferenceCommon {
 public:
-    HostParsedInference_4000();
+    HostParsedInference_4000() = delete;
+    explicit HostParsedInference_4000(elf::platform::ArchKind archKind);
     std::vector<SymbolEntry> getSymbolTable(uint8_t index) const override;
     std::vector<elf::Elf_Word> getSymbolSectionTypes() const override;
     BufferSpecs getParsedInferenceBufferSpecs() override;
@@ -25,10 +27,7 @@ public:
 private:
     std::vector<SymbolEntry> symTab_;
     std::vector<elf::Elf_Word> secTypeContainers_;
-
-    static constexpr uint32_t VERSION_MAJOR = 1;
-    static constexpr uint32_t VERSION_MINOR = 2;
-    static constexpr uint32_t VERSION_PATCH = 2;
+    elf::platform::ArchKind archKind_;
 };
 
 }  // namespace elf

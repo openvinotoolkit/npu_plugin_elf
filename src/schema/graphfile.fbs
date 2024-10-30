@@ -6,7 +6,6 @@ include "memoryManagement.fbs";
 include "dma.fbs";
 include "nnController.fbs";
 include "nnNCE2.fbs";
-include "upaNCE.fbs";
 include "actKernel.fbs";
 include "software.fbs";
 include "m2i.fbs";
@@ -65,13 +64,9 @@ table TaskList{
 
 union SpecificTask{
     MvTensorTask,       // Only for backward compatibility
-    UPADMATask,
     NNDMATask,
-    NCE1Task,           // Only for backward compatibility
-    NCE2Task,
     NNTensorTask,       // Only for backward compatibility
     ControllerTask,
-    UPALayerTask,
     SNNLayerTask,
     ActKernelTask,
     GenericTask,

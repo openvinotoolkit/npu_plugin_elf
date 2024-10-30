@@ -6,7 +6,6 @@
 #pragma once
 
 #include <memory>
-#include <unordered_map>
 #include <vector>
 #include <vpux_elf/accessor.hpp>
 #include <vpux_elf/utils/version.hpp>
@@ -60,6 +59,7 @@ public:
     elf::Version getMIVersion() const;
     elf::Version getLibraryELFVersion() const;
     elf::Version getLibraryMIVersion() const;
+    size_t getHPISize() const;
 
     void applyInputOutput(std::vector<DeviceBuffer>& inputs, std::vector<DeviceBuffer>& outputs,
                           std::vector<DeviceBuffer>& profiling);
@@ -70,6 +70,7 @@ private:
     AccessManager* accessManager;
     std::shared_ptr<NetworkMetadata> metadata;
     std::shared_ptr<elf::platform::PlatformInfo> platformInfo;
+    std::shared_ptr<ManagedBuffer> perfMetrics;
     std::vector<std::unique_ptr<VPUXLoader>> loaders;
     std::shared_ptr<AllocatedDeviceBuffer> parsedInference;
     elf::HPIConfigs hpiCfg;

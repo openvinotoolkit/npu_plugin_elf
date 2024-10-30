@@ -65,4 +65,9 @@ void RelocationSection::finalize() {
         m_data.insert(m_data.end(), reinterpret_cast<uint8_t*>(&relocationEntry),
                       reinterpret_cast<uint8_t*>(&relocationEntry) + sizeof(relocationEntry));
     }
+
+    // set size of the section in header, so it gets accounted when writer calculates blob size before allocation
+    // this way writer can look at single place (size in header) for all sections
+    // including those that don't populate m_data, e.g. EmptySection
+    setSize(m_data.size());
 }

@@ -6,9 +6,9 @@
 #pragma once
 
 #include <cstring>
-#include <functional>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <vpux_headers/serial_struct_base.hpp>
 
@@ -26,6 +26,7 @@ enum class ArchKind : uint64_t {
 const std::unordered_map<std::string, elf::platform::ArchKind>& getKnownArchitectures();
 elf::platform::ArchKind mapArchStringToArchKind(const std::string& archName);
 std::string stringifyArchKind(const elf::platform::ArchKind& arch);
+uint8_t getHardwareTileCount(const elf::platform::ArchKind& arch);
 
 struct PlatformInfo {
     ArchKind mArchKind;

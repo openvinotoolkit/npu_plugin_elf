@@ -5,11 +5,11 @@
 
 //
 
-#include <vpux_elf/utils/utils.hpp>
+#include <vpux_elf/types/vpu_extensions.hpp>
 
 #include <vpux_elf/types/elf_header.hpp>
-
 #include <vpux_elf/utils/error.hpp>
+#include <vpux_elf/utils/utils.hpp>
 
 namespace elf {
 
@@ -39,6 +39,25 @@ size_t alignUp(size_t size, size_t alignment) {
 
 bool isPowerOfTwo(size_t value) {
     return value && ((value & (value - 1)) == 0);
+}
+
+bool hasNPUAccess(Elf_Xword sectionFlags) {
+    return sectionFlags & (SHF_EXECINSTR | VPU_SHF_PROC_DPU | VPU_SHF_PROC_DMA | VPU_SHF_PROC_SHAVE);
+}
+
+bool isNetworkIO(Elf_Xword sectionFlags) {
+    return sectionFlags & (VPU_SHF_USERINPUT | VPU_SHF_USEROUTPUT | VPU_SHF_PROFOUTPUT);
+}
+
+bool hasMemoryFootprint(elf::Elf_Word sectionType) {
+    switch (sectionType) {
+    case elf::SHT_NOBITS:
+    case elf::VPU_SHT_CMX_METADATA:
+    case elf::VPU_SHT_CMX_WORKSPACE:
+        return false;
+    default:
+        return true;
+    }
 }
 
 }  // namespace utils

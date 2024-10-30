@@ -4,15 +4,6 @@ include "memoryManagement.fbs";
 
 namespace MVCNN;
 
-table UPADMATask {
-  /// A DMA is essentially a memory transfer from one location
-  /// to another.
-  /// Length, Striding information and other such required information is
-  /// already contained within the TensorReference objects.
-  src : TensorReference;
-  dst : TensorReference;
-}
-
 struct DMADescriptorReference {
   /// Information of actual DMA descriptor that generate from compiler
 
@@ -23,7 +14,6 @@ struct DMADescriptorReference {
   src_width : uint;
 
   // Distance expressed in bytes from start of one line of source data
-  // to start of next line of source data.
   src_stride : uint;
 
   // Displacement in bytes from the start address of one source plane
@@ -41,8 +31,7 @@ struct DMADescriptorReference {
   // plane to the start of the next destination plane.
   dst_plane_stride : uint;
 
-  // In 3D mode several planes of data may be moved. This field
-  // holds the number of planes.
+  // In 3D mode several planes of data may be moved.
   num_planes : uint;
 }
 
@@ -67,7 +56,7 @@ table NNDMATask {
   // of critical importance.
   set_crit: bool = false;
 
-  // NNDMATask transaction type details
+  // NNDMATask transaction type details.
   descriptor : DMADescriptorReference;
 
   // Represents the offset from the dma_hwp_base (see fileHeader.fbs)

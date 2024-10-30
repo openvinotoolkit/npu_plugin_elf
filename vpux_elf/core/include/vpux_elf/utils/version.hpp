@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <sstream>
+#include <tuple>
 #include <vpux_elf/utils/log.hpp>
 #include <vpux_elf/utils/error.hpp>
 
@@ -26,7 +27,7 @@ enum class VersionType {
 
 class Version final {
 public:
-    Version(uint32_t v_major, uint32_t v_minor, uint32_t v_patch) : major{v_major}, minor{v_minor}, patch{v_patch}, isValid{true} {};
+    constexpr Version(uint32_t v_major, uint32_t v_minor, uint32_t v_patch) : major{v_major}, minor{v_minor}, patch{v_patch}, isValid{true} {};
     explicit Version(const elf::elf_note::VersionNote& versionNote) : major{versionNote.n_desc[1]}, minor{versionNote.n_desc[2]}, patch{versionNote.n_desc[3]}, isValid{true} {};
     Version() = default;
 
@@ -38,6 +39,14 @@ public:
         stream << version.major << "." << version.minor << "." << version.patch;
         return stream;
     }
+
+    // Comparison operators
+    bool operator== (const Version& other) const;
+    bool operator!= (const Version& other) const;
+    bool operator< (const Version& other) const;
+    bool operator> (const Version& other) const;
+    bool operator<= (const Version& other) const;
+    bool operator>= (const Version& other) const;
 
     /**
      * Helper static function to check the compatibility between different versions
@@ -61,13 +70,12 @@ public:
     bool checkValidity() const;
 
 private:
-    uint32_t major;
-    uint32_t minor;
-    uint32_t patch;
+    uint32_t major = 0;
+    uint32_t minor = 0;
+    uint32_t patch = 0;
 
     bool isValid = false;
 };
-
 
 
 //

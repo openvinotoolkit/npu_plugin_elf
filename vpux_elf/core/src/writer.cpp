@@ -5,12 +5,18 @@
 
 //
 
+#include <cstddef>
+#include <cstdint>
+#include <utility>
 #include <vpux_elf/utils/error.hpp>
 #include <vpux_elf/utils/utils.hpp>
 #include <vpux_elf/writer.hpp>
+#include <vpux_elf/writer/empty_section.hpp>
 
 #include <algorithm>
 #include <unordered_set>
+
+#include <iostream>
 
 using namespace elf;
 using namespace elf::writer;
@@ -28,119 +34,90 @@ Writer::Writer() {
     m_symbolNames = addStringSection(".symstrtab");
 };
 
-std::vector<uint8_t> Writer::generateELF() {
-    auto elfHeader = generateELFHeader();
+void Writer::prepareWriter() {
+    m_elfHeader = generateELFHeader();
 
-    std::vector<elf::SectionHeader> sectionHeaders;
-    sectionHeaders.reserve(elfHeader.e_shnum);
-    std::vector<elf::ProgramHeader> programHeaders;
-    programHeaders.reserve(elfHeader.e_phnum);
-
-    std::vector<Section*> sectionsFromSegments;
-    for (const auto& segment : m_segments) {
-        for (const auto& section : segment->m_sections) {
-            sectionsFromSegments.push_back(section);
-        }
-    }
-
-    elfHeader.e_shstrndx = static_cast<Elf_Half>(m_sectionHeaderNames->getIndex());
+    m_elfHeader.e_shstrndx = static_cast<Elf_Half>(m_sectionHeaderNames->getIndex());
 
     for (auto& section : m_sections) {
         section->finalize();
         section->setNameOffset(m_sectionHeaderNames->addString(section->getName()));
     }
 
-    auto curOffset = elfHeader.e_ehsize;
-    if (elfHeader.e_shnum) {
-        elfHeader.e_shoff = utils::alignUp(curOffset, elfHeader.e_shentsize);
-        curOffset = static_cast<Elf_Half>(elfHeader.e_shoff);
-    }
-    if (elfHeader.e_phnum) {
-        elfHeader.e_phoff =
-                utils::alignUp(curOffset + elfHeader.e_shnum * elfHeader.e_shentsize, elfHeader.e_phentsize);
-        curOffset = static_cast<Elf_Half>(elfHeader.e_phoff);
-    } else {
-        curOffset += elfHeader.e_shnum * elfHeader.e_shentsize;
+    auto curOffset = m_elfHeader.e_ehsize;
+    if (m_elfHeader.e_shnum) {
+        m_elfHeader.e_shoff = utils::alignUp(curOffset, m_elfHeader.e_shentsize);
+        curOffset = static_cast<Elf_Half>(m_elfHeader.e_shoff);
     }
 
-    auto dataOffset = static_cast<size_t>(curOffset + elfHeader.e_phnum * elfHeader.e_phentsize);
-    auto totalBinarySize = dataOffset;
+    curOffset += m_elfHeader.e_shnum * m_elfHeader.e_shentsize;
+
+    m_dataOffset = static_cast<size_t>(curOffset);
+    m_totalBinarySize = m_dataOffset;
+
+    m_sectionHeaders.reserve(m_elfHeader.e_shnum);
 
     for (auto& section : m_sections) {
-        totalBinarySize = utils::alignUp(totalBinarySize, section->m_header.sh_addralign) + section->m_data.size();
-    }
-    for (auto& segment : m_segments) {
-        for (auto& section : segment->m_sections) {
-            totalBinarySize = utils::alignUp(totalBinarySize, section->m_header.sh_addralign) + section->m_data.size();
+        // account for alignment requirement of all sections, including those that don't occupy space in the blob
+        // it's temporary solution to keep blobs of the same hash as before optimization and simplify validation
+        // extra memory overhead is negligible, e.g. for Age&Gender blob of size 4.4MB we save around 3KB
+        // E#136376
+        m_totalBinarySize = utils::alignUp(m_totalBinarySize, section->getAddrAlign());
+
+        const auto isNotEmptySection = dynamic_cast<elf::writer::EmptySection*>(section.get()) == nullptr;
+        const auto hasData = section->getSize() != 0;
+
+        if (isNotEmptySection && hasData) {
+            // to keep "no-data" sections with zero offset (and don't allocate space for them in blob)
+            // check for both not empty section & has data as there could be sections without data
+            // that have type different from EmptySection e.g. shave.data being binary section
+            // that maybe missing for a given blob
+            section->m_header.sh_offset = m_totalBinarySize;
+            m_totalBinarySize += section->getSize();
         }
-        totalBinarySize = utils::alignUp(totalBinarySize, segment->m_header.p_align) + segment->m_data.size();
+        m_sectionHeaders.push_back(section->m_header);
     }
+}
 
-    std::vector<uint8_t> data(totalBinarySize);
+void Writer::generateELF(uint8_t* data) {
+    VPUX_ELF_THROW_WHEN(data == nullptr, ArgsError, "Storage pointer is nullptr");
+    VPUX_ELF_THROW_UNLESS(utils::checkELFMagic(reinterpret_cast<uint8_t*>(&m_elfHeader)), ImplausibleState,
+                          "Can't generateELF without previous call to prepareWriter!");
+    VPUX_ELF_THROW_UNLESS(m_totalBinarySize != 0, RangeError, "Unknown size for blob storage. Check if you called Writer::prepareWriter");
+    const auto size = getTotalSize();
 
-    const auto serializeSection = [&data, &sectionHeaders, &dataOffset](Section* section) {
-        const auto sectionData = section->m_data;
-        auto sectionHeader = section->m_header;
-
-        dataOffset = utils::alignUp(dataOffset, section->getAddrAlign());
-
-        if (!sectionData.empty()) {
-            sectionHeader.sh_offset = dataOffset;
-            sectionHeader.sh_size = sectionData.size();
+    const auto serializeSection = [data, size](Section* section) {
+        if (!section->m_data.empty()) {
+            // there are still sections that get serialized in 2 stages: first to internal storage of elf::Writer
+            // then to final blob here, e.g. relocation sections and symbol tables
+            // it's temporary solution for sections with internal states (e.g. relocation and symbol entries)
+            // note: it needs to be done after blob size calculation as section offsets are being updated there
+            // E#-136375
+            Writer::writeContainerToStorageVector(data, size, section->getOffset(), section->m_data, 0,
+                                                  section->m_data.size());
         }
-        sectionHeaders.push_back(sectionHeader);
-        dataOffset = Writer::writeContainerToStorageVector(data, dataOffset, sectionData, 0, sectionData.size());
     };
 
     for (auto& section : m_sections) {
-        if (std::find(sectionsFromSegments.begin(), sectionsFromSegments.end(), section.get()) !=
-            sectionsFromSegments.end()) {
-            continue;
-        }
-
         serializeSection(section.get());
     }
 
-    for (auto& segment : m_segments) {
-        if (segment->m_data.empty() && segment->m_sections.empty()) {
-            continue;
-        }
+    m_dataOffset = writeObjectToStorageVector(data, size, 0, m_elfHeader);
 
-        auto programHeader = segment->m_header;
-        programHeader.p_offset = dataOffset;
-
-        for (auto& section : segment->m_sections) {
-            programHeader.p_filesz += section->m_data.size();
-            serializeSection(section);
-        }
-
-        if (!segment->m_data.empty()) {
-            programHeader.p_filesz += segment->m_data.size();
-            data.insert(data.end(), segment->m_data.data(), segment->m_data.data() + segment->m_data.size());
-            dataOffset =
-                    Writer::writeContainerToStorageVector(data, dataOffset, segment->m_data, 0, segment->m_data.size());
-        }
-
-        programHeader.p_memsz = programHeader.p_filesz;
-
-        programHeaders.push_back(programHeader);
+    if (m_elfHeader.e_shoff) {
+        m_dataOffset = writeContainerToStorageVector(data, size, m_dataOffset, m_sectionHeaders, 0, m_sectionHeaders.size());
     }
-
-    dataOffset = writeObjectToStorageVector(data, 0, elfHeader);
-
-    if (elfHeader.e_shoff) {
-        dataOffset = writeContainerToStorageVector(data, dataOffset, sectionHeaders, 0, sectionHeaders.size());
-    }
-    if (elfHeader.e_phoff) {
-        dataOffset = writeContainerToStorageVector(data, dataOffset, programHeaders, 0, programHeaders.size());
-    }
-
-    return data;
 }
 
-Segment* Writer::addSegment() {
-    m_segments.push_back(std::unique_ptr<Segment>(new Segment));
-    return m_segments.back().get();
+size_t Writer::getTotalSize() const {
+    return m_totalBinarySize;
+}
+
+void Writer::setSectionsStartAddr(uint8_t* elfBinaryAddr) {
+    VPUX_ELF_THROW_WHEN(elfBinaryAddr == nullptr, ArgsError, "Storage pointer is nullptr");
+    for (auto& section : m_sections) {
+        section->m_startAddr = elfBinaryAddr + section->m_header.sh_offset;
+    }
 }
 
 Section* Writer::addSection(const std::string& name) {
@@ -195,24 +172,24 @@ elf::ELFHeader Writer::generateELFHeader() const {
     fileHeader.e_shstrndx = 0;
 
     fileHeader.e_shnum = static_cast<Elf_Half>(m_sections.size());
-    fileHeader.e_phnum = static_cast<Elf_Half>(m_segments.size());
-
-    fileHeader.e_shoff = fileHeader.e_phoff = 0;
+    fileHeader.e_shoff = 0;
 
     fileHeader.e_ehsize = sizeof(ELFHeader);
-    fileHeader.e_phentsize = sizeof(ProgramHeader);
     fileHeader.e_shentsize = sizeof(SectionHeader);
 
     return fileHeader;
 }
 
-size_t Writer::writeRawBytesToStorageVector(std::vector<uint8_t>& storageVector, size_t storageOffset,
+size_t Writer::writeRawBytesToStorageVector(uint8_t* storageVector, size_t storageSize, size_t storageOffset,
                                             const uint8_t* sourceData, size_t sourceByteCount) {
-    auto storagePos = storageVector.begin() + storageOffset;
+    VPUX_ELF_THROW_WHEN(storageVector == nullptr, ArgsError, "Storage pointer is nullptr");
+
+    auto storagePos = storageVector + storageOffset;
+    auto storageVectorEnd = storageVector + storageSize;
 
     // Check storage offset and size bounds
-    VPUX_ELF_THROW_WHEN(storagePos >= storageVector.end(), RuntimeError, "Write offset out of bounds");
-    VPUX_ELF_THROW_WHEN(storagePos + sourceByteCount > storageVector.end(), RuntimeError, "Write size exceeds bounds");
+    VPUX_ELF_THROW_WHEN(storagePos >= storageVectorEnd, RuntimeError, "Write offset out of bounds");
+    VPUX_ELF_THROW_WHEN(storagePos + sourceByteCount > storageVectorEnd, RuntimeError, "Write size exceeds bounds");
 
     std::copy_n(sourceData, sourceByteCount, storagePos);
 

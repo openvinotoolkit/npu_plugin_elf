@@ -6,7 +6,13 @@
 //
 
 #include <cstring>
+
+#include <memory>
 #include <vpux_loader/vpux_loader.hpp>
+#include "vpux_elf/types/section_header.hpp"
+#include "vpux_headers/buffer_specs.hpp"
+#include "vpux_headers/device_buffer_container.hpp"
+#include "vpux_headers/managed_buffer.hpp"
 
 #ifndef VPUX_ELF_LOG_UNIT_NAME
 #define VPUX_ELF_LOG_UNIT_NAME "VpuxLoader"
@@ -16,17 +22,6 @@
 namespace elf {
 
 namespace {
-
-bool hasMemoryFootprint(elf::Elf_Word sectionType) {
-    switch (sectionType) {
-    case elf::SHT_NOBITS:
-    case elf::VPU_SHT_CMX_METADATA:
-    case elf::VPU_SHT_CMX_WORKSPACE:
-        return false;
-    default:
-        return true;
-    }
-}
 
 const uint32_t LO_21_BIT_MASK = 0x001F'FFFF;
 const uint32_t B21_B26_MASK = 0x07E0'0000;
@@ -72,7 +67,7 @@ uint32_t to_dpu_multicast_base(uint32_t addr) {
 }
 
 const auto VPU_16_BIT_SUM_Relocation = [](void* targetAddr, const elf::SymbolEntry& targetSym,
-                                      const Elf_Sxword addend) -> void {
+                                          const Elf_Sxword addend) -> void {
     auto addr = reinterpret_cast<uint16_t*>(targetAddr);
     auto symVal = targetSym.st_value;
     VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t\t16Bit SUM reloc, addr %p addrVal 0x%x symVal 0x%llx addend %llu", addr,
@@ -82,7 +77,7 @@ const auto VPU_16_BIT_SUM_Relocation = [](void* targetAddr, const elf::SymbolEnt
 };
 
 const auto VPU_64_BIT_MULT_Relocation = [](void* targetAddr, const elf::SymbolEntry& targetSym,
-                                          const Elf_Sxword addend) -> void {
+                                           const Elf_Sxword addend) -> void {
     auto addr = reinterpret_cast<uint64_t*>(targetAddr);
     auto symVal = targetSym.st_value;
     VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t\t64Bit MULT reloc, addr %p addrVal 0x%x symVal 0x%llx addend %llu", addr,
@@ -92,11 +87,11 @@ const auto VPU_64_BIT_MULT_Relocation = [](void* targetAddr, const elf::SymbolEn
 };
 
 const auto VPU_64_BIT_MULT_SUB_Relocation = [](void* targetAddr, const elf::SymbolEntry& targetSym,
-                                           const Elf_Sxword addend) -> void {
+                                               const Elf_Sxword addend) -> void {
     auto addr = reinterpret_cast<uint64_t*>(targetAddr);
     auto symVal = targetSym.st_value;
-    VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t\t64Bit MULT after SUB reloc, addr %p addrVal 0x%x symVal 0x%llx addend %llu", addr,
-                 *addr, symVal, addend);
+    VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t\t64Bit MULT after SUB reloc, addr %p addrVal 0x%x symVal 0x%llx addend %llu",
+                 addr, *addr, symVal, addend);
 
     *addr *= static_cast<int64_t>(addend) - static_cast<int64_t>(symVal);
 };
@@ -396,6 +391,21 @@ const auto VPU_32_BIT_OR_B21_B26_UNSET_LOW_16_Relocation = [](void* targetAddr, 
     auto patchAddr = static_cast<uint16_t>(symVal + addend) & B21_B26_UNSET_MASK;
     *addr |= patchAddr & 0xFFFF;
 };
+
+// NPU5 only
+const auto VPU_HIGH_27_BIT_OR_Relocation = [](void* targetAddr, const elf::SymbolEntry& targetSym,
+                                              const Elf_Sxword addend) -> void {
+    auto addr = reinterpret_cast<uint64_t*>(targetAddr);
+    auto symVal = targetSym.st_value;
+    VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t\tHigh 27 bits reloc, addr %p addrVal 0x%llx  symVal 0x%llx addend %llu", addr,
+                 *addr, symVal, addend);
+
+    auto patchAddrUnsetTile = static_cast<uint32_t>(symVal + addend) &
+                              ~0xE0'0000;  // unsetting 3 tile bits as NPU5 only uses 3 bits for tile selection
+    auto patchAddr = (patchAddrUnsetTile >> 4) & (0x7FFF'FFFF >> 4);  // only [30:4]
+    *addr |= (static_cast<uint64_t>(patchAddr) << 37);                // set [64:37]
+};
+
 }  // namespace
 
 const std::map<Elf_Word, VPUXLoader::Action> VPUXLoader::actionMap = {
@@ -446,10 +456,12 @@ const std::map<VPUXLoader::RelocationType, VPUXLoader::RelocationFunc> VPUXLoade
         {R_VPU_16_LSB_17_RSHIFT_5_LSHIFT_CUSTOM, VPU_16_BIT_LSB_17_RSHIFT_5_LSHIFT_CUSTOM_Relocation},
         {R_VPU_32_BIT_OR_B21_B26_UNSET_HIGH_16, VPU_32_BIT_OR_B21_B26_UNSET_HIGH_16_Relocation},
         {R_VPU_32_BIT_OR_B21_B26_UNSET_LOW_16, VPU_32_BIT_OR_B21_B26_UNSET_LOW_16_Relocation},
+        {R_VPU_HIGH_27_BIT_OR, VPU_HIGH_27_BIT_OR_Relocation},
 };
 
 VPUXLoader::VPUXLoader(AccessManager* accessor, BufferManager* bufferManager)
-        : m_bufferContainer(bufferManager),
+        : m_inferBufferContainer(bufferManager),
+          m_backupBufferContainer(bufferManager),
           m_relocationSectionIndexes(std::make_shared<std::vector<std::size_t>>()),
           m_jitRelocations(std::make_shared<std::vector<std::size_t>>()),
           m_userInputsDescriptors(std::make_shared<std::vector<DeviceBuffer>>()),
@@ -469,6 +481,12 @@ VPUXLoader::VPUXLoader(AccessManager* accessor, BufferManager* bufferManager)
 
         (*m_sectionMap)[sectionType].emplace_back(sectionCtr);
         VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "[%lu] Section name: %s", sectionCtr, section.getName());
+
+        // Early fetch of IO buffer specs
+        const auto action = actionMap.find(sectionType);
+        if (action->second == Action::RegisterUserIO) {
+            earlyFetchIO(section);
+        }
     }
 
     // accomodate missing section due to compatibility with older ELFs
@@ -480,7 +498,8 @@ VPUXLoader::VPUXLoader(AccessManager* accessor, BufferManager* bufferManager)
 VPUXLoader::VPUXLoader(const VPUXLoader& other)
         : m_bufferManager(other.m_bufferManager),
           m_reader(other.m_reader),
-          m_bufferContainer(other.m_bufferContainer),
+          m_inferBufferContainer(other.m_inferBufferContainer),
+          m_backupBufferContainer(other.m_backupBufferContainer),
           m_runtimeSymTabs(other.m_runtimeSymTabs),
           m_relocationSectionIndexes(other.m_relocationSectionIndexes),
           m_jitRelocations(other.m_jitRelocations),
@@ -500,7 +519,8 @@ VPUXLoader::VPUXLoader(const VPUXLoader& other)
 VPUXLoader::VPUXLoader(const VPUXLoader& other, const std::vector<SymbolEntry>& runtimeSymTabs)
         : m_bufferManager(other.m_bufferManager),
           m_reader(other.m_reader),
-          m_bufferContainer(other.m_bufferContainer),
+          m_inferBufferContainer(other.m_inferBufferContainer),
+          m_backupBufferContainer(other.m_backupBufferContainer),
           m_runtimeSymTabs(runtimeSymTabs),
           m_relocationSectionIndexes(other.m_relocationSectionIndexes),
           m_jitRelocations(other.m_jitRelocations),
@@ -523,7 +543,7 @@ VPUXLoader& VPUXLoader::operator=(const VPUXLoader& other) {
 
     m_bufferManager = other.m_bufferManager;
     m_reader = other.m_reader;
-    m_bufferContainer = other.m_bufferContainer;
+    m_inferBufferContainer = other.m_inferBufferContainer;
     m_runtimeSymTabs = other.m_runtimeSymTabs;
     m_relocationSectionIndexes = other.m_relocationSectionIndexes;
     m_jitRelocations = other.m_jitRelocations;
@@ -546,6 +566,7 @@ VPUXLoader::~VPUXLoader() {
 }
 
 elf::DeviceBufferContainer::BufferPtr VPUXLoader::getEntry() {
+    // this is very very temporary version E#73309
     auto numSections = m_reader->getSectionsNum();
 
     for (size_t sectionCtr = 0; sectionCtr < numSections; ++sectionCtr) {
@@ -561,7 +582,7 @@ elf::DeviceBufferContainer::BufferPtr VPUXLoader::getEntry() {
                 auto symType = elf64STType(symTab.st_info);
                 if (symType == VPU_STT_ENTRY) {
                     auto secIndx = symTab.st_shndx;
-                    return m_bufferContainer.getBufferInfoFromIndex(secIndx).mBuffer;
+                    return m_inferBufferContainer.getBufferInfoFromIndex(secIndx).mBuffer;
                 }
             }
         }
@@ -623,8 +644,6 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTa
 
             VPUX_ELF_LOG(LogLevel::LOG_TRACE, "Allocate and loading %zu", sectionCtr);
 
-            auto sectionSize = sectionHeader->sh_size;
-
             // Shared condition:
             //  1. has data
             //  2. is read only
@@ -634,33 +653,20 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTa
             // Condition 2 can be checked here
             // Condition 3 needs to be checked after all relocation sections have been registered in order to be
             // independent from the sections order inside the ELF binary
-            auto isShared = sectionFlags & SHF_WRITE ? false : true;
 
-            DeviceBufferContainer::BufferInfo bufferInfo;
-            bufferInfo.mBufferDetails.mIsShared = isShared;
-            bufferInfo.mBufferDetails.mHasData = true;
+            auto& inferBufferInfo = m_inferBufferContainer.safeInitBufferInfoAtIndex(sectionCtr);
+            inferBufferInfo.mBufferDetails.mHasData = true;
+            inferBufferInfo.mBufferDetails.mIsShared = sectionFlags & SHF_WRITE ? false : true;
+            inferBufferInfo.mBufferDetails.mIsProcessed = false;
 
-            // Retrieve section buffer
-            // The other components do not know for now if the buffer is shared or not
-            auto sectionBuffer = section.getDataBuffer();
-            bufferInfo.mBuffer = sectionBuffer;
-            // If buffer is not shared, create a new one and leave the one belonging to the Reader untouched
-            // This is needed for sections that contain relocations in order to be able to apply them again
-            if (!isShared) {
-                bufferInfo.mBuffer = sectionBuffer->createNew();
-                bufferInfo.mBuffer->loadWithLock(sectionBuffer->getBuffer().cpu_addr(), sectionBuffer->getBuffer().size());
-            }
-            m_bufferContainer.replaceBufferInfoAtIndex(sectionCtr, bufferInfo);
-
-            VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tFor section %s Allocated %p of size  %llu and copied from %p to %p",
-                         section.getName(), bufferInfo.mBuffer->getBuffer().cpu_addr(), sectionSize,
-                         section.getData<uint8_t>(), section.getData<uint8_t>() + sectionSize);
+            VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tLoaded section %s (address: %p, size: %llu)", section.getName(),
+                         inferBufferInfo.mBuffer->getBuffer().cpu_addr(), inferBufferInfo.mBuffer->getBuffer().size());
             break;
         }
 
         case Action::Allocate: {
             bool isAllocateable = sectionFlags & SHF_ALLOC;
-            if (m_explicitAllocations && !isAllocateable) {
+            if ((m_explicitAllocations && !isAllocateable) || utils::isNetworkIO(sectionFlags)) {
                 break;
             }
 
@@ -669,14 +675,15 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTa
             auto sectionSize = sectionHeader->sh_size;
             auto sectionAlignment = sectionHeader->sh_addralign;
 
-            DeviceBufferContainer::BufferInfo bufferInfo;
-            bufferInfo.mBuffer = m_bufferContainer.buildAllocatedDeviceBuffer(
+            auto& inferBufferInfo = m_inferBufferContainer.safeInitBufferInfoAtIndex(sectionCtr);
+            inferBufferInfo.mBuffer = m_inferBufferContainer.buildAllocatedDeviceBuffer(
                     BufferSpecs(sectionAlignment, sectionSize, sectionFlags));
-            bufferInfo.mBufferDetails.mIsProcessed = true;
-            m_bufferContainer.replaceBufferInfoAtIndex(sectionCtr, bufferInfo);
+            inferBufferInfo.mBufferDetails.mHasData = false;
+            inferBufferInfo.mBufferDetails.mIsShared = false;
+            inferBufferInfo.mBufferDetails.mIsProcessed = true;
 
             VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tFor section %s Allocated %p of size %llu", section.getName(),
-                         bufferInfo.mBuffer->getBuffer().cpu_addr(), sectionSize);
+                         inferBufferInfo.mBuffer->getBuffer().cpu_addr(), sectionSize);
             break;
         }
 
@@ -684,7 +691,7 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTa
             if (sectionFlags & VPU_SHF_JIT) {
                 // Trigger read of section data so that after load completes the AccessManager object can
                 // be safely deleted
-                section.getDataBuffer();
+                section.getData<void>();
 
                 VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "Registering JIT Relocation %zu", sectionCtr);
                 m_jitRelocations->push_back(static_cast<int>(sectionCtr));
@@ -695,36 +702,17 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTa
             break;
         }
 
-        case Action::RegisterUserIO: {
-            VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "Parsed symtab section with flags %llx", sectionFlags);
-
-            if (sectionFlags & VPU_SHF_USERINPUT) {
-                VPUX_ELF_THROW_WHEN(m_userInputsDescriptors->size(), SequenceError,
-                                    "User inputs already read.... potential more than one input section?");
-
-                VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRegistering %zu inputs", section.getEntriesNum() - 1);
-                registerUserIO(*m_userInputsDescriptors, section.getData<elf::SymbolEntry>(), section.getEntriesNum());
-            } else if (sectionFlags & VPU_SHF_USEROUTPUT) {
-                VPUX_ELF_THROW_WHEN(m_userOutputsDescriptors->size(), SequenceError,
-                                    "User outputs already read.... potential more than one output section?");
-
-                VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRegistering %zu outputs", section.getEntriesNum() - 1);
-                registerUserIO(*m_userOutputsDescriptors, section.getData<elf::SymbolEntry>(), section.getEntriesNum());
-            } else if (sectionFlags & VPU_SHF_PROFOUTPUT) {
-                VPUX_ELF_THROW_WHEN(m_profOutputsDescriptors->size(), SequenceError,
-                                    "Profiling outputs already read.... potential more than one output section?");
-
-                VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRegistering %zu prof outputs", section.getEntriesNum() - 1);
-                registerUserIO(*m_profOutputsDescriptors, section.getData<elf::SymbolEntry>(), section.getEntriesNum());
-            }
-            break;
-        }
-
         case Action::Error: {
             VPUX_ELF_THROW(SectionError, "Unexpected section type");
             return;
         }
 
+        case Action::RegisterUserIO: {
+            // Trigger read of section data so that after load completes the AccessManager object can
+            // be safely deleted
+            section.getData<void>();
+            break;
+        }
         case Action::None: {
             break;
         }
@@ -740,21 +728,12 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTa
     updateSharedBuffers(*m_relocationSectionIndexes);
     updateSharedBuffers(*m_jitRelocations);
 
+    // Load actual buffers for the first time
+    loadBuffers();
+
     applyRelocations(*m_relocationSectionIndexes);
 
-    VPUX_ELF_LOG(LogLevel::LOG_INFO, "Allocated %zu sections", m_bufferContainer.getBufferInfoCount());
-    VPUX_ELF_LOG(LogLevel::LOG_INFO, "Registered %zu inputs of sizes: ", m_userInputsDescriptors->size());
-    for (size_t inputCtr = 0; inputCtr < m_userInputsDescriptors->size(); ++inputCtr) {
-        VPUX_ELF_LOG(LogLevel::LOG_INFO, "\t %zu : %zu", inputCtr, (*m_userInputsDescriptors)[inputCtr].size());
-    }
-    VPUX_ELF_LOG(LogLevel::LOG_INFO, "Registered %zu outputs of sizes: ", m_userOutputsDescriptors->size());
-    for (size_t outputCtr = 0; outputCtr < m_userOutputsDescriptors->size(); ++outputCtr) {
-        VPUX_ELF_LOG(LogLevel::LOG_INFO, "\t %zu : %zu", outputCtr, (*m_userOutputsDescriptors)[outputCtr].size());
-    }
-    VPUX_ELF_LOG(LogLevel::LOG_INFO, "Registered %zu prof outputs of sizes: ", m_profOutputsDescriptors->size());
-    for (size_t outputCtr = 0; outputCtr < m_profOutputsDescriptors->size(); ++outputCtr) {
-        VPUX_ELF_LOG(LogLevel::LOG_INFO, "\t %zu : %zu", outputCtr, (*m_profOutputsDescriptors)[outputCtr].size());
-    }
+    VPUX_ELF_LOG(LogLevel::LOG_INFO, "Allocated %zu sections", m_inferBufferContainer.getBufferInfoCount());
 
     // sections were loaded. other calls to this method will throw an error
     m_loaded = true;
@@ -764,6 +743,8 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTa
 
 void VPUXLoader::updateSharedBuffers(const std::vector<std::size_t>& relocationSectionIndexes) {
     VPUX_ELF_LOG(LogLevel::LOG_TRACE, "Update shared buffers");
+
+    // First, exclude all relocation targets from shared pool
     for (const auto& relocationSectionIdx : relocationSectionIndexes) {
         const auto& relocSection = m_reader->getSection(relocationSectionIdx);
         const auto relocSecHdr = relocSection.getHeader();
@@ -775,40 +756,75 @@ void VPUXLoader::updateSharedBuffers(const std::vector<std::size_t>& relocationS
             VPUX_ELF_THROW(RelocError, "Rela section with no target section");
             return;
         }
+        VPUX_ELF_LOG(LogLevel::LOG_TRACE, "Processing buffer for section %zu", targetSectionIdx);
         VPUX_ELF_THROW_WHEN(targetSectionIdx == 0 || targetSectionIdx > m_reader->getSectionsNum(), RelocError,
                             "invalid target section from rela section");
 
-        // If section is relocation target, allocate new buffer such that original data can be used again when
-        // creating clones
-        auto& bufferInfo = m_bufferContainer.getBufferInfoFromIndex(targetSectionIdx);
-        if (!bufferInfo.mBufferDetails.mIsProcessed) {
-            VPUX_ELF_LOG(LogLevel::LOG_TRACE, "Processing buffer for section %zu", targetSectionIdx);
-            DeviceBufferContainer::BufferPtr newBuffer = bufferInfo.mBuffer->createNew();
-            newBuffer->loadWithLock(bufferInfo.mBuffer->getBuffer().cpu_addr(), bufferInfo.mBuffer->getBuffer().size());
-            bufferInfo.mBufferDetails.mIsShared = false;
-            bufferInfo.mBufferDetails.mIsProcessed = true;
-            bufferInfo.mBuffer = newBuffer;
+        // Line below should throw if buffer container does not have by this point a valid buffer associated with the
+        // target relocation section
+        auto& inferBufferInfo = m_inferBufferContainer.getBufferInfoFromIndex(targetSectionIdx);
+
+        if (!inferBufferInfo.mBufferDetails.mIsProcessed) {
+            inferBufferInfo.mBufferDetails.mIsShared = false;
         } else {
             VPUX_ELF_LOG(LogLevel::LOG_TRACE, "Buffer for section %zu is already processed", targetSectionIdx);
         }
     }
 }
 
-void VPUXLoader::reloadNewBuffers() {
-    auto numSections = m_reader->getSectionsNum();
-    for (size_t sectionIndex = 0; sectionIndex < numSections; ++sectionIndex) {
-        if (m_bufferContainer.hasBufferInfoAtIndex(sectionIndex)) {
-            auto& bufferInfo = m_bufferContainer.getBufferInfoFromIndex(sectionIndex);
-            if (bufferInfo.mBufferDetails.mHasData && !bufferInfo.mBufferDetails.mIsShared) {
-                auto section = m_reader->getSection(sectionIndex);
-                auto sectionSize = section.getHeader()->sh_size;
+void VPUXLoader::loadBuffers() {
+    // Now actually create and load buffers
+    for (auto& elem : m_inferBufferContainer) {
+        auto bufferIndex = elem.first;
+        auto& bufferInfo = elem.second;
 
-                VPUX_ELF_THROW_UNLESS(sectionSize == bufferInfo.mBuffer->getBufferSpecs().size, RuntimeError,
-                                      "Mismatch between section size and allocated device buffer size");
-                bufferInfo.mBuffer->loadWithLock(section.getData<uint8_t>(), sectionSize);
-                VPUX_ELF_LOG(LogLevel::LOG_TRACE, "Loading with lock %llu bytes from %p to %p", sectionSize,
-                             section.getData<uint8_t>(), bufferInfo.mBuffer->getBuffer().cpu_addr());
+        if (!bufferInfo.mBufferDetails.mIsProcessed) {
+            auto& section = m_reader->getSection(bufferIndex);
+
+            if (bufferInfo.mBufferDetails.mIsShared) {
+                bufferInfo.mBuffer = m_reader->getSection(bufferIndex).getDataBuffer();
+            } else {
+                // Initialize backup buffer info
+                auto& backupBufferInfo = m_backupBufferContainer.safeInitBufferInfoAtIndex(bufferIndex);
+
+                // Get actual backup buffer with CPU-only access
+                backupBufferInfo.mBuffer = m_reader->getSection(bufferIndex).getDataBuffer(true);
+                auto backupBufferLock = ElfBufferLockGuard(backupBufferInfo.mBuffer.get());
+                // Explicitly allocate a new NPU-access buffer
+                auto bufferSpecs = backupBufferInfo.mBuffer->getBufferSpecs();
+                bufferSpecs.procFlags = section.getHeader()->sh_flags;
+                bufferInfo.mBuffer = m_inferBufferContainer.buildAllocatedDeviceBuffer(bufferSpecs);
+
+                // Copy data from backup to infer buffer
+                bufferInfo.mBuffer->loadWithLock(backupBufferInfo.mBuffer->getBuffer().cpu_addr(),
+                                                 backupBufferInfo.mBuffer->getBuffer().size());
+
+                backupBufferInfo.mBufferDetails.mHasData = true;
+                backupBufferInfo.mBufferDetails.mIsShared = true;
+                backupBufferInfo.mBufferDetails.mIsProcessed = true;
             }
+
+            bufferInfo.mBufferDetails.mIsProcessed = true;
+        }
+    }
+}
+
+void VPUXLoader::reloadNewBuffers() {
+    for (const auto& buffer : m_inferBufferContainer) {
+        auto& sectionIndex = buffer.first;
+        auto& inferBufferInfo = buffer.second;
+        if (inferBufferInfo.mBufferDetails.mHasData && !inferBufferInfo.mBufferDetails.mIsShared) {
+            auto& backupBufferInfo = m_backupBufferContainer.getBufferInfoFromIndex(sectionIndex);
+            auto backupBufferLock = ElfBufferLockGuard(backupBufferInfo.mBuffer.get());
+
+            VPUX_ELF_THROW_UNLESS(
+                    backupBufferInfo.mBuffer->getBuffer().size() == inferBufferInfo.mBuffer->getBuffer().size(),
+                    RuntimeError, "Mismatch between section backup size and allocated device buffer size");
+            inferBufferInfo.mBuffer->loadWithLock(backupBufferInfo.mBuffer->getBuffer().cpu_addr(),
+                                                  inferBufferInfo.mBuffer->getBuffer().size());
+            VPUX_ELF_LOG(LogLevel::LOG_TRACE, "Loading with lock %llu bytes from %p to %p",
+                         inferBufferInfo.mBuffer->getBuffer().size(), backupBufferInfo.mBuffer->getBuffer().cpu_addr(),
+                         inferBufferInfo.mBuffer->getBuffer().cpu_addr());
         }
     }
 }
@@ -870,8 +886,7 @@ void VPUXLoader::applyRelocations(const std::vector<std::size_t>& relocationSect
         auto targetSection = m_reader->getSection(targetSectionIdx);
 
         // at this point we assume that all sections have an address, to which we can apply a simple lookup
-        // auto targetSectionDevBuf = m_sectionToAddr[targetSectionIdx];
-        auto& targetSectionBuf = m_bufferContainer.getBufferInfoFromIndex(targetSectionIdx).mBuffer;
+        auto& targetSectionBuf = m_inferBufferContainer.getBufferInfoFromIndex(targetSectionIdx).mBuffer;
         auto targetSectionLock = ElfBufferLockGuard(targetSectionBuf.get());
 
         auto targetSectionAddr = targetSectionBuf->getBuffer().cpu_addr();
@@ -893,8 +908,8 @@ void VPUXLoader::applyRelocations(const std::vector<std::size_t>& relocationSect
             //    - special relocation that would use the runtime symbols
             // received from the user
             //    - relocations on the symbols defined in the symbol table inside the ELF file.
-            // In this case the section has a specific number of entries (need to use the getEntriesNum method of this
-            // section)
+            // In this case the section has a specific number of entries (need to use the getEntriesNum method of
+            // this section)
             VPUX_ELF_THROW_WHEN((relSymIdx > symTabEntries && symTabIdx != VPU_RT_SYMTAB) ||
                                         (relSymIdx > m_runtimeSymTabs.size() && symTabIdx == VPU_RT_SYMTAB),
                                 RelocError, "SymTab index out of bounds!");
@@ -916,8 +931,8 @@ void VPUXLoader::applyRelocations(const std::vector<std::size_t>& relocationSect
             auto symbolTargetSectionIdx = targetSymbol.st_shndx;
 
             uint64_t symValue = 0;
-            if (m_bufferContainer.hasBufferInfoAtIndex(symbolTargetSectionIdx)) {
-                symValue = m_bufferContainer.getBufferInfoFromIndex(symbolTargetSectionIdx)
+            if (m_inferBufferContainer.hasBufferInfoAtIndex(symbolTargetSectionIdx)) {
+                symValue = m_inferBufferContainer.getBufferInfoFromIndex(symbolTargetSectionIdx)
                                    .mBuffer->getBuffer()
                                    .vpu_addr();
             }
@@ -1011,7 +1026,7 @@ void VPUXLoader::applyJitRelocations(std::vector<DeviceBuffer>& inputs, std::vec
         }
 
         // at this point we assume that all sections have an address, to which we can apply a simple lookup
-        auto targetSectionBuf = m_bufferContainer.getBufferInfoFromIndex(targetSectionIdx).mBuffer;
+        auto targetSectionBuf = m_inferBufferContainer.getBufferInfoFromIndex(targetSectionIdx).mBuffer;
         auto targetSectionLock = ElfBufferLockGuard(targetSectionBuf.get());
 
         auto targetSectionAddr = targetSectionBuf->getBuffer().cpu_addr();
@@ -1032,7 +1047,8 @@ void VPUXLoader::applyJitRelocations(std::vector<DeviceBuffer>& inputs, std::vec
             auto symIdx = elf64RSym(relocation.r_info);
 
             VPUX_ELF_THROW_WHEN(symIdx > symTabSize, RelocError, "SymTab index out of bounds!");
-            VPUX_ELF_THROW_WHEN(symIdx > userAddrs.size(), RelocError, "Invalid symbol index. It exceeds the number of relevant device buffers");
+            VPUX_ELF_THROW_WHEN(symIdx > userAddrs.size(), RelocError,
+                                "Invalid symbol index. It exceeds the number of relevant device buffers");
 
             auto relType = elf64RType(relocation.r_info);
             auto addend = relocation.r_addend;
@@ -1066,7 +1082,7 @@ void VPUXLoader::applyJitRelocations(std::vector<DeviceBuffer>& inputs, std::vec
 }
 
 std::vector<DeviceBuffer> VPUXLoader::getAllocatedBuffers() const {
-    return m_bufferContainer.getBuffersAsVector();
+    return m_inferBufferContainer.getBuffersAsVector();
 }
 
 void VPUXLoader::registerUserIO(std::vector<DeviceBuffer>& userIO, const elf::SymbolEntry* symbols,
@@ -1082,6 +1098,33 @@ void VPUXLoader::registerUserIO(std::vector<DeviceBuffer>& userIO, const elf::Sy
     for (size_t symbolCtr = 1; symbolCtr < symbolCount; ++symbolCtr) {
         const elf::SymbolEntry& sym = symbols[symbolCtr];
         userIO[symbolCtr - 1] = DeviceBuffer(nullptr, 0, sym.st_size);
+        VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t index %zu : size %zu\n", symbolCtr - 1, sym.st_size);
+    }
+}
+
+void VPUXLoader::earlyFetchIO(const elf::Reader<Elf64>::Section& section) {
+    const auto sectionFlags = section.getHeader()->sh_flags;
+
+    VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "Parsed symtab section with flags %llx", sectionFlags);
+
+    if (sectionFlags & VPU_SHF_USERINPUT) {
+        VPUX_ELF_THROW_WHEN(m_userInputsDescriptors->size(), SequenceError,
+                            "User inputs already read.... potential more than one input section?");
+
+        VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRegistering %zu inputs", section.getEntriesNum() - 1);
+        registerUserIO(*m_userInputsDescriptors, section.getData<elf::SymbolEntry>(), section.getEntriesNum());
+    } else if (sectionFlags & VPU_SHF_USEROUTPUT) {
+        VPUX_ELF_THROW_WHEN(m_userOutputsDescriptors->size(), SequenceError,
+                            "User outputs already read.... potential more than one output section?");
+
+        VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRegistering %zu outputs", section.getEntriesNum() - 1);
+        registerUserIO(*m_userOutputsDescriptors, section.getData<elf::SymbolEntry>(), section.getEntriesNum());
+    } else if (sectionFlags & VPU_SHF_PROFOUTPUT) {
+        VPUX_ELF_THROW_WHEN(m_profOutputsDescriptors->size(), SequenceError,
+                            "Profiling outputs already read.... potential more than one output section?");
+
+        VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRegistering %zu prof outputs", section.getEntriesNum() - 1);
+        registerUserIO(*m_profOutputsDescriptors, section.getData<elf::SymbolEntry>(), section.getEntriesNum());
     }
 }
 
@@ -1102,7 +1145,8 @@ bool VPUXLoader::checkSectionType(const elf::SectionHeader* section, Elf_Word se
 }
 
 std::vector<std::shared_ptr<ManagedBuffer>> VPUXLoader::getSectionsOfType(elf::Elf_Word type) {
-    VPUX_ELF_THROW_WHEN(!hasMemoryFootprint(type), elf::RuntimeError, "Can't access data of NOBITS-like section");
+    VPUX_ELF_THROW_WHEN(!utils::hasMemoryFootprint(type), elf::RuntimeError,
+                        "Can't access data of NOBITS-like section");
     VPUX_ELF_THROW_UNLESS(m_sectionMap->find(type) != m_sectionMap->end(), RangeError, "Section type not registered!");
     std::vector<std::shared_ptr<ManagedBuffer>> retVector;
     for (auto sectionIndex : (*m_sectionMap)[type]) {

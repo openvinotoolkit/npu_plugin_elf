@@ -59,4 +59,32 @@ void Version::checkVersionCompatibility(const Version& expectedVersion, const Ve
     }
 }
 
+//
+// Comparison operators overload
+// 
+
+bool Version::operator== (const Version& other) const {
+    return (major == other.major) && (minor == other.minor) && (patch == other.patch);
+}
+
+bool Version::operator!= (const Version& other) const {
+    return !(*this == other);
+}
+
+bool Version::operator< (const Version& other) const {
+    return std::tie(major, minor, patch) < std::tie(other.major, other.minor, other.patch);
+}
+
+bool Version::operator> (const Version& other) const {
+    return !(*this < other) && (*this != other);
+}
+
+bool Version::operator<= (const Version& other) const {
+    return !(*this > other);
+}
+
+bool Version::operator>= (const Version& other) const {
+    return !(*this < other);
+}
+
 }  // namespace elf
