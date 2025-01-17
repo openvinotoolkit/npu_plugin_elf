@@ -61,7 +61,6 @@ void Writer::prepareWriter() {
         // account for alignment requirement of all sections, including those that don't occupy space in the blob
         // it's temporary solution to keep blobs of the same hash as before optimization and simplify validation
         // extra memory overhead is negligible, e.g. for Age&Gender blob of size 4.4MB we save around 3KB
-        // E#136376
         m_totalBinarySize = utils::alignUp(m_totalBinarySize, section->getAddrAlign());
 
         const auto isNotEmptySection = dynamic_cast<elf::writer::EmptySection*>(section.get()) == nullptr;
@@ -92,7 +91,6 @@ void Writer::generateELF(uint8_t* data) {
             // then to final blob here, e.g. relocation sections and symbol tables
             // it's temporary solution for sections with internal states (e.g. relocation and symbol entries)
             // note: it needs to be done after blob size calculation as section offsets are being updated there
-            // E#-136375
             Writer::writeContainerToStorageVector(data, size, section->getOffset(), section->m_data, 0,
                                                   section->m_data.size());
         }
