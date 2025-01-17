@@ -102,8 +102,6 @@ table ActKernel {
   /// kernelText's address
   kernelEntry: uint32;
 
-  /// This buffer represents the kernel implementation specific input arguments that are
-  /// unique to a particular Activation SHAVE kernel implementation.
   globalArgs: KernelDataReference;
 
   // Fields for Uniquely identifying a Kernel (for version tracking)
@@ -128,7 +126,6 @@ table ActKernelInvocation{
   /// In short; this parameter determines _if_ performance data is captured this Invocation
   perfPayload: KernelDataReference;
 
-  /// The compiler needs to specify the tile directly.
   tile: uint32;
 
   /// Adding fields to the schema such that we can use the tensor dimensions
@@ -146,7 +143,7 @@ table ActKernelTask {
 }
 
 table ActKernelRuntime {
-  /// This object exist to accommodate the firmware to execute the Activation SHAVE Runtime.
+  /// This object exist to accommodate the firmware to execute the Activation SHAVE Runtime
 
   /// The schedule allocated space used for the runtime stack(s).
   shaveStacks: [KernelDataReference];

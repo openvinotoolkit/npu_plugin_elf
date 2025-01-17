@@ -44,7 +44,7 @@ void Writer::prepareWriter() {
         section->setNameOffset(m_sectionHeaderNames->addString(section->getName()));
     }
 
-    auto curOffset = m_elfHeader.e_ehsize;
+    auto curOffset = static_cast<size_t>(m_elfHeader.e_ehsize);
     if (m_elfHeader.e_shnum) {
         m_elfHeader.e_shoff = utils::alignUp(curOffset, m_elfHeader.e_shentsize);
         curOffset = static_cast<Elf_Half>(m_elfHeader.e_shoff);

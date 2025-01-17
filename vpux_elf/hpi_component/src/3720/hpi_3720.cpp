@@ -103,7 +103,6 @@ std::vector<SymbolEntry> HostParsedInference_3720::getSymbolTable(uint8_t index)
         symTab_[j][VPU_NNRD_SYM_FIFO_BASE].st_value = fifo_base[j];
         symTab_[j][VPU_NNRD_SYM_FIFO_BASE].st_size = 0;
 
-        // E#119112
         symTab_[j][VPU_NNRD_SYM_BARRIERS_START].st_value = fifo_base[j] * 32;
         symTab_[j][VPU_NNRD_SYM_BARRIERS_START].st_size = 0;
 

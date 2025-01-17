@@ -254,15 +254,15 @@ const auto VPU_LO_21_BIT_MULTICAST_BASE_Relocation = [](void* targetAddr, const 
     *addr = to_dpu_multicast_base(patchAddr);
 };
 
-const auto VPU_16_BIT_LSB_17_RSHIFT_5_Relocation = [](void* targetAddr, const elf::SymbolEntry& targetSym,
+const auto VPU_16_BIT_LSB_21_RSHIFT_5_Relocation = [](void* targetAddr, const elf::SymbolEntry& targetSym,
                                                       const Elf_Sxword addend) -> void {
     auto addr = reinterpret_cast<uint32_t*>(targetAddr);
     auto symVal = targetSym.st_value;
     VPUX_ELF_LOG(LogLevel::LOG_DEBUG,
-                 "\t\t16Bit Reloc: Low 17 bits, rshift by 5 reloc, addr %p symVal 0x%llx addend %llu", addr, symVal,
+                 "\t\t16Bit Reloc: Low 21 bits, rshift by 5 reloc, addr %p symVal 0x%llx addend %llu", addr, symVal,
                  addend);
 
-    const uint32_t mask = 0x0001'FFFF;  // mask used to only keep last 17 bits
+    const uint32_t mask = 0x001F'FFFF;  // mask used to only keep last 21 bits
     const uint32_t lsb_16_mask = 0xFFFF;
 
     *addr &= ~lsb_16_mask;
@@ -319,32 +319,32 @@ const auto VPU_64_BIT_OR_B21_B26_UNSET_Relocation = [](void* targetAddr, const e
     *addr |= patchAddr;
 };
 
-const auto VPU_16_BIT_LSB_17_RSHIFT_5_LSHIFT_16_Relocation = [](void* targetAddr, const elf::SymbolEntry& targetSym,
+const auto VPU_16_BIT_LSB_21_RSHIFT_5_LSHIFT_16_Relocation = [](void* targetAddr, const elf::SymbolEntry& targetSym,
                                                                 const Elf_Sxword addend) -> void {
     auto addr = reinterpret_cast<uint32_t*>(targetAddr);
     auto symVal = targetSym.st_value;
     VPUX_ELF_LOG(LogLevel::LOG_DEBUG,
-                 "\t\t16Bit Reloc: Low 17 bits, rshift by 5 reloc, addr %p symVal 0x%llx addend %llu", addr, symVal,
+                 "\t\t16Bit Reloc: Low 21 bits, rshift by 5 reloc, addr %p symVal 0x%llx addend %llu", addr, symVal,
                  addend);
 
-    const uint32_t mask = 0x0001'FFFF;  // mask used to only keep last 17 bits
+    const uint32_t mask = 0x001F'FFFF;  // mask used to only keep last 21 bits
     const uint32_t msb_16_mask = 0xFFFF0000;
 
     *addr &= ~msb_16_mask;
     *addr |= ((static_cast<uint32_t>(symVal + addend) & mask) >> 5) << 16;
 };
 
-const auto VPU_16_BIT_LSB_17_RSHIFT_5_LSHIFT_CUSTOM_Relocation = [](void* targetAddr, const elf::SymbolEntry& targetSym,
+const auto VPU_16_BIT_LSB_21_RSHIFT_5_LSHIFT_CUSTOM_Relocation = [](void* targetAddr, const elf::SymbolEntry& targetSym,
                                                                     const Elf_Sxword addend) -> void {
     // more details in ticket #E-97614
     auto addr = reinterpret_cast<uint32_t*>(targetAddr);
     auto symVal = targetSym.st_value;
     VPUX_ELF_LOG(
             LogLevel::LOG_DEBUG,
-            "\t\t16Bit Reloc preemtion workaround: Low 17 bits, rshift by 5 reloc, addr %p symVal 0x%llx addend %llu",
+            "\t\t16Bit Reloc preemtion workaround: Low 21 bits, rshift by 5 reloc, addr %p symVal 0x%llx addend %llu",
             addr, symVal, addend);
 
-    const uint32_t mask = 0x0001'FFFF;                          // mask used to only keep last 17 bits
+    const uint32_t mask = 0x001F'FFFF;                          // mask used to only keep last 21 bits
     const uint32_t preemtion_work_around_16_mask = 0xFFFE4000;  // 1111 1111 1111 1110 0100 0000 0000 0000
 
     *addr &= ~preemtion_work_around_16_mask;
@@ -392,7 +392,6 @@ const auto VPU_32_BIT_OR_B21_B26_UNSET_LOW_16_Relocation = [](void* targetAddr, 
     *addr |= patchAddr & 0xFFFF;
 };
 
-// NPU5 only
 const auto VPU_HIGH_27_BIT_OR_Relocation = [](void* targetAddr, const elf::SymbolEntry& targetSym,
                                               const Elf_Sxword addend) -> void {
     auto addr = reinterpret_cast<uint64_t*>(targetAddr);
@@ -401,9 +400,9 @@ const auto VPU_HIGH_27_BIT_OR_Relocation = [](void* targetAddr, const elf::Symbo
                  *addr, symVal, addend);
 
     auto patchAddrUnsetTile = static_cast<uint32_t>(symVal + addend) &
-                              ~0xE0'0000;  // unsetting 3 tile bits as NPU5 only uses 3 bits for tile selection
-    auto patchAddr = (patchAddrUnsetTile >> 4) & (0x7FFF'FFFF >> 4);  // only [30:4]
-    *addr |= (static_cast<uint64_t>(patchAddr) << 37);                // set [64:37]
+                              ~0xE0'0000;
+    auto patchAddr = (patchAddrUnsetTile >> 4) & (0x7FFF'FFFF >> 4);
+    *addr |= (static_cast<uint64_t>(patchAddr) << 37);
 };
 
 }  // namespace
@@ -447,13 +446,13 @@ const std::map<VPUXLoader::RelocationType, VPUXLoader::RelocationFunc> VPUXLoade
         {R_VPU_LO_21, VPU_LO_21_BIT_Relocation},
         {R_VPU_LO_21_SUM, VPU_LO_21_BIT_SUM_Relocation},
         {R_VPU_LO_21_MULTICAST_BASE, VPU_LO_21_BIT_MULTICAST_BASE_Relocation},
-        {R_VPU_16_LSB_17_RSHIFT_5, VPU_16_BIT_LSB_17_RSHIFT_5_Relocation},
+        {R_VPU_16_LSB_21_RSHIFT_5, VPU_16_BIT_LSB_21_RSHIFT_5_Relocation},
         {R_VPU_LO_21_RSHIFT_4, VPU_LO_21_BIT_RSHIFT_4_Relocation},
         {R_VPU_CMX_LOCAL_RSHIFT_5, VPU_CMX_LOCAL_RSHIFT_5_Relocation},
         {R_VPU_32_BIT_OR_B21_B26_UNSET, VPU_32_BIT_OR_B21_B26_UNSET_Relocation},
         {R_VPU_64_BIT_OR_B21_B26_UNSET, VPU_64_BIT_OR_B21_B26_UNSET_Relocation},
-        {R_VPU_16_LSB_17_RSHIFT_5_LSHIFT_16, VPU_16_BIT_LSB_17_RSHIFT_5_LSHIFT_16_Relocation},
-        {R_VPU_16_LSB_17_RSHIFT_5_LSHIFT_CUSTOM, VPU_16_BIT_LSB_17_RSHIFT_5_LSHIFT_CUSTOM_Relocation},
+        {R_VPU_16_LSB_21_RSHIFT_5_LSHIFT_16, VPU_16_BIT_LSB_21_RSHIFT_5_LSHIFT_16_Relocation},
+        {R_VPU_16_LSB_21_RSHIFT_5_LSHIFT_CUSTOM, VPU_16_BIT_LSB_21_RSHIFT_5_LSHIFT_CUSTOM_Relocation},
         {R_VPU_32_BIT_OR_B21_B26_UNSET_HIGH_16, VPU_32_BIT_OR_B21_B26_UNSET_HIGH_16_Relocation},
         {R_VPU_32_BIT_OR_B21_B26_UNSET_LOW_16, VPU_32_BIT_OR_B21_B26_UNSET_LOW_16_Relocation},
         {R_VPU_HIGH_27_BIT_OR, VPU_HIGH_27_BIT_OR_Relocation},
@@ -566,7 +565,6 @@ VPUXLoader::~VPUXLoader() {
 }
 
 elf::DeviceBufferContainer::BufferPtr VPUXLoader::getEntry() {
-    // this is very very temporary version E#73309
     auto numSections = m_reader->getSectionsNum();
 
     for (size_t sectionCtr = 0; sectionCtr < numSections; ++sectionCtr) {
