@@ -100,8 +100,9 @@ enum OVNodeType {
     OVNodeType_U64 = 17,
     OVNodeType_F8E4M3 = 18,
     OVNodeType_F8E5M2 = 19,
+    OVNodeType_NF4 = 20,
     OVNodeType_MIN = OVNodeType_UNDEFINED,
-    OVNodeType_MAX = OVNodeType_F8E5M2,
+    OVNodeType_MAX = OVNodeType_NF4,
 };
 
 struct VPUX_ALIGNED_STRUCT(8) Identification {

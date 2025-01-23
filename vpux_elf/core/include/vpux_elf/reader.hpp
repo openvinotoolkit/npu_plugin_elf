@@ -7,6 +7,10 @@
 
 #pragma once
 
+#include <limits>
+#include <unordered_map>
+#include <vector>
+
 #include <vpux_elf/types/data_types.hpp>
 #include <vpux_elf/types/elf_header.hpp>
 #include <vpux_elf/types/elf_structs.hpp>
@@ -16,11 +20,6 @@
 #include <vpux_elf/utils/utils.hpp>
 
 #include <vpux_elf/accessor.hpp>
-
-#include <fstream>
-#include <string>
-#include <unordered_map>
-#include <vector>
 
 namespace elf {
 
@@ -68,7 +67,6 @@ public:
         std::shared_ptr<ManagedBuffer> getDataBuffer(bool cpuOnlyAccess = false) const {
             std::shared_ptr<ManagedBuffer> buffer = nullptr;
 
-            // E#73309
             // SHT_NOBITS - sections can have a size greater than the file
             // which will cause offset out of bounds.
             // VPU_SHT_CMX_METADATA - does not contain data in the binary file, so avoid reading
@@ -132,7 +130,13 @@ public:
     }
 
     size_t getSectionsNum() const {
-        VPUX_ELF_THROW_UNLESS(mElfHeader.e_shnum <= 1000, ArgsError, "Invalid e_shnum");
+        // Coverity requires to guard against malicious blob that may trigger read out of bounds
+        // as a short-term solution define static limit on sections count
+        // to avoid unnecessary rejection of blobs with large amount of sections allow all section count values
+        // except maximum supported by the data type of variable
+        // to be replaced with the check blob file size not less than amount of bytes needed deduced from ELF header
+        constexpr auto MAX_SECTIONS_COUNT = std::numeric_limits<decltype(mElfHeader.e_shnum)>::max() - 1;
+        VPUX_ELF_THROW_WHEN(mElfHeader.e_shnum > MAX_SECTIONS_COUNT, ArgsError, "Invalid e_shnum");
         return mElfHeader.e_shnum;
     }
 

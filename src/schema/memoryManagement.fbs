@@ -69,6 +69,7 @@ table BinaryData{
   // Together they contain all known Tensors that are parameters
   // to the serialized network.
 
+
   // FlatBuffers internally align to the size of the datatype.
   underlying_type: DType;
   length: ulong;
@@ -115,10 +116,6 @@ table KernelData{
   // KernelData exists as a separately indexed collection of activation kernels for a
   // given inference. They can represent any kernel related buffer such as code or invocation data.
   // There can be many KernelDatas as part of the graphfile.
-  // Together they contain all known Kernels that are part of the serialized network.
-  //
-  // It would be more elegant to do this via a flatbuffer Union,
-  // but this layout is more performant.
 
 
   // FlatBuffers internally align to the size of the datatype.

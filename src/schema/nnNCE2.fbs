@@ -263,13 +263,12 @@ table NCEInvariantFields {
   // convolution, which is guaranted to be the next task in the task list.
   is_continued: bool = false;
 
-  // Marks tasks to be done in super dense mode
-  // without any gaps.
+  // Marks tasks to be done in super dense mode.
 
   is_superdense: bool = false;
 
   /// in case of segmentation the DPU needs to know how many lines are in
-  /// neighbouring clusters.
+  /// neighbouring clusters
   segment_height: [uint16];
 
   /// Configures a permutation to apply to the output.
