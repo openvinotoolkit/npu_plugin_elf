@@ -75,6 +75,9 @@ public:
     std::vector<DeviceBuffer> getOutputBuffers() const;
     std::vector<DeviceBuffer> getProfBuffers() const;
     std::vector<std::shared_ptr<ManagedBuffer>> getSectionsOfType(elf::Elf_Word type);
+    void setInferencesMayBeRunInParallel(bool inferencesMayBeRunInParallel);
+    bool getInferencesMayBeRunInParallel() const;
+    void updateSharedScratchBuffers(const std::vector<DeviceBuffer>& buffers);
 
 private:
     bool checkSectionType(const elf::SectionHeader* section, Elf_Word secType) const;
@@ -106,6 +109,9 @@ private:
     bool m_explicitAllocations;
     bool m_loaded;
     std::vector<elf::Elf_Word> m_symbolSectionTypes;
+
+    bool m_inferencesMayBeRunInParallel;
+    std::vector<size_t> m_sharedScratchBuffers;
 };
 
 }  // namespace elf

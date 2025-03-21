@@ -14,10 +14,12 @@ namespace platform {
 
 
 const std::unordered_map<std::string, elf::platform::ArchKind>& getKnownArchitectures() {
-    static const std::unordered_map<std::string, elf::platform::ArchKind> knownArch = {{"UNKNOWN", elf::platform::ArchKind::UNKNOWN},
+    static const std::unordered_map<std::string, elf::platform::ArchKind> knownArch = {
+                                                    {"UNKNOWN", elf::platform::ArchKind::UNKNOWN},
                                                     {"VPUX30XX", elf::platform::ArchKind::VPUX30XX},
                                                     {"VPUX37XX", elf::platform::ArchKind::VPUX37XX},
-                                                    {"VPUX40XX", elf::platform::ArchKind::VPUX40XX}};
+                                                    {"VPUX40XX", elf::platform::ArchKind::VPUX40XX}
+    };
 
     return knownArch;
 }
@@ -49,6 +51,7 @@ uint8_t getHardwareTileCount(const elf::platform::ArchKind& arch) {
         {elf::platform::ArchKind::VPUX30XX, 2},
         {elf::platform::ArchKind::VPUX37XX, 2},
         {elf::platform::ArchKind::VPUX40XX, 6}
+
     };
     // get maximum hardware tile count, archKind has already been checked before
     return hardwareTileCountsMap.find(arch)->second;

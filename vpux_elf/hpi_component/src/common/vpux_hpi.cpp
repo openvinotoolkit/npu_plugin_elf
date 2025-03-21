@@ -3,6 +3,9 @@
 // SPDX-License-Identifier: Apache 2.0
 //
 
+#include "vpux_elf/utils/error.hpp"
+#include "vpux_headers/managed_buffer.hpp"
+#include "vpux_headers/platform.hpp"
 #ifndef VPUX_ELF_LOG_UNIT_NAME
 #define VPUX_ELF_LOG_UNIT_NAME "VpuxHpi"
 #endif
@@ -20,6 +23,7 @@
 #if defined(CONFIG_TARGET_SOC_4000) || defined(HOST_BUILD)
 #include <hpi_4000.hpp>
 #endif
+
 
 #include <string.h>
 // clang-format on
@@ -177,6 +181,11 @@ HostParsedInference::HostParsedInference(BufferManager* bufferMgr, AccessManager
         tileCountLogBuffer << "Incorrect tile count. Requested tile count '" << static_cast<int>(tileCount)
                            << "' exceeds hardware tile count '" << static_cast<int>(hardwareTileCount) << "'";
         VPUX_ELF_THROW(ArgsError, tileCountLogBuffer.str().c_str());
+    }
+
+    if (tileCount > hardwareTileCount / 2
+        && archKind != elf::platform::ArchKind::VPUX30XX && archKind != elf::platform::ArchKind::VPUX37XX) {
+        loaders.front()->setInferencesMayBeRunInParallel(false);
     }
 }
 
@@ -410,6 +419,11 @@ void HostParsedInference::applyInputOutput(std::vector<DeviceBuffer>& inputs, st
     for (auto& loader : loaders) {
         loader->applyJitRelocations(inputs, outputs, profiling);
     }
+}
+
+void HostParsedInference::updateSharedScratchBuffers(const std::vector<DeviceBuffer>& buffers) {
+    auto& loader = loaders.front();
+    loader->updateSharedScratchBuffers(buffers);
 }
 
 }  // namespace elf
