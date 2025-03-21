@@ -54,7 +54,7 @@ enum TargetDevice : byte {
     VPUX30XX = 1,
     VPUX37XX = 2,
     VPUX311X = 3,
-    VPUX40XX = 4
+    VPUX40XX = 4,
 }
 
 enum TargetDeviceRevision : byte {

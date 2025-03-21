@@ -71,7 +71,6 @@ enum ActKernelPerfStallFilter : byte {
     /// Instruction buffer Low during discontinuity
     INST_BUFF_LOW_DISC = 26
 }
-
 table PerfPayloadConfig {
   /// Use the Free Running Counter
   /// 64b
@@ -79,7 +78,6 @@ table PerfPayloadConfig {
   /// Duration measured by FRC
   /// 32b
   frcDuration: bool = false;
-
   counters: [ActKernelPerfCounter];
 
   /// Only applicable if STALL_CYCLE_CNT_EN is set as one of the counter targets in `counters`.
@@ -91,7 +89,6 @@ table ActKernel {
   /// This object describes the activation kernel itself. It specifies the size and entry
   /// of the kernel binary, the size of the `.data` section of all associated invocations,
   /// and a type specifier intended for future extensibility.
-
   /// A type identifier allowing for the FW to do special handling of work items
   type: ActKernelType;
 
@@ -101,7 +98,6 @@ table ActKernel {
   /// the entry point of the kernel given as an offset from the start of the
   /// kernelText's address
   kernelEntry: uint32;
-
   globalArgs: KernelDataReference;
 
   // Fields for Uniquely identifying a Kernel (for version tracking)
@@ -112,24 +108,18 @@ table ActKernel {
 
 table ActKernelInvocation{
   /// This object exists to differentiate invocations of the kernel range.
-
-  /// ActKernelTask and associated Kernel are not bound by barriers
+  /// Unlike DPU Tasks, the ActKernelTask and associated Kernel are not bound by barriers
   associatedBarriers: BarrierReference;
 
   /// the monolithic kernel's .data section. There is a unique data section per-invocation
   dataSection: KernelDataReference;
 
-  /// This buffer represents the generic input arguments that all Activation SHAVE kernels
-  /// share.
+  /// This buffer represents the generic input arguments that all Activation SHAVE kernels share.
   invocationArgs: KernelDataReference;
-
   /// In short; this parameter determines _if_ performance data is captured this Invocation
   perfPayload: KernelDataReference;
-
   tile: uint32;
-
-  /// Adding fields to the schema such that we can use the tensor dimensions
-  /// for performance predictions.
+  /// Adding fields to the schema such that we can use the tensor dimensions for for performance predictions.
   inputTensors: [TensorReference];
   outputTensors: [TensorReference];
 }
@@ -147,10 +137,7 @@ table ActKernelRuntime {
 
   /// The schedule allocated space used for the runtime stack(s).
   shaveStacks: [KernelDataReference];
-
   kernel: ActKernel;
-
   perfConfig: PerfPayloadConfig;
-
   codeScratchBuffer: KernelDataReference;
 }

@@ -167,7 +167,7 @@ table PPETask{
     // Used for global, per tensor PPE setup.
     fp_scale_data: float = 1.0;
 
-    // Used for global, per tensor PPE setup.
+    // Used for global, per tensor PPE setup. 
     fp_prelu_alpha: float = 1.0;
 }
 
@@ -200,7 +200,7 @@ table NCEInvariantFields {
   /// share. This is generally layer information.
   dpu_task_type: DPULayerType;
   ppe_task: PPETask;
-  nnshv_task: [NNTensorTask] (deprecated);
+  nnshv_task: [NNTensorTask] (deprecated); // TODO: Only kept for backward compatibility. May be removed
 
   // MPE_Mode is also present in variant fields.
   // This field tells the runtime what is the main MPE_mode used in this layer
@@ -234,7 +234,6 @@ table NCEInvariantFields {
   weights_data: TensorReference;
   // This contains meta information about the weights and other parameters such as bias and scale.
   weights_table: TensorReference;
-
   enabled_optimizations: [NN2Optimization];
 
   modified_kernelH: short = 0 (deprecated);
@@ -264,11 +263,9 @@ table NCEInvariantFields {
   is_continued: bool = false;
 
   // Marks tasks to be done in super dense mode.
-
   is_superdense: bool = false;
 
-  /// in case of segmentation the DPU needs to know how many lines are in
-  /// neighbouring clusters
+  /// in case of segmentation the DPU needs to know how many lines are in neighbouring clusters
   segment_height: [uint16];
 
   /// Configures a permutation to apply to the output.
@@ -299,7 +296,6 @@ table NCEVariantFields{
     associated_barriers: BarrierReference;
 
     mpe_mode: MPE_Mode;
-
     padLeft: uint16;
     padRight: uint16;
     padTop: uint16;
@@ -316,7 +312,6 @@ table NCEVariantFields{
     workload_end_Z: uint16;
 
     /// FlexNN dataflow description for NPU 4000
-
     /// [OX, OY, IC, OC, FX, FY, DC]
     flex_map_column: [uint8];
 
@@ -333,7 +328,7 @@ table NCEVariantFields{
     flex_outer_order: [uint8];
 
     // If present, the location to which profiling data for this variant
-    // should be written.
+    // should be written. This field is valid only for NPU 3700.
     profiling_data: TensorReference;
 
     // List of Halo Regions
@@ -356,7 +351,6 @@ table NCEVariantFields{
 table NCE2Task {
   /// This object describes an entire network layer that will be operated
   /// on by the NCE's DPUs, PPEs and NNSHV Assist Library.
-
   invariant: NCEInvariantFields;
   variant: [NCEVariantFields];
 }

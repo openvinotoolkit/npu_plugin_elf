@@ -6,7 +6,6 @@ namespace MVCNN;
 
 struct DMADescriptorReference {
   /// Information of actual DMA descriptor that generate from compiler
-
   // Total Number of Bytes to transfer per plane
   len : uint;
 
@@ -14,24 +13,25 @@ struct DMADescriptorReference {
   src_width : uint;
 
   // Distance expressed in bytes from start of one line of source data
+  // to start of next line of source data. 
   src_stride : uint;
 
   // Displacement in bytes from the start address of one source plane
-  // to the start of the next source plane.
+  // to the start of the next source plane. 
   src_plane_stride : uint;
 
   // Width in bytes of data written to destination
   dst_width : uint;
 
   // Distance expressed in bytes from start of one line of destination
-  // data to start of next line of destination data.
+  // data to start of next line of destination data. 
   dst_stride : uint;
 
   // Displacement in bytes from the start address of one destination
-  // plane to the start of the next destination plane.
+  // plane to the start of the next destination plane. 
   dst_plane_stride : uint;
 
-  // In 3D mode several planes of data may be moved.
+  // In 3D mode several planes of data may be moved. This field holds the number of planes. 
   num_planes : uint;
 }
 
@@ -56,11 +56,10 @@ table NNDMATask {
   // of critical importance.
   set_crit: bool = false;
 
-  // NNDMATask transaction type details
+  // NNDMATask transaction type details 
   descriptor : DMADescriptorReference;
 
-  // Represents the offset from the dma_hwp_base (see fileHeader.fbs)
-  // in multiples of DMA perf payload packet size
+  // Represents the offset from the dma_hwp_base (see fileHeader.fbs) in multiples of DMA perf payload packet size
   dma_hwp_id: int32 = 0;
 
   // Optional field, used for the Activation Spill Compression/Decompression Flow.

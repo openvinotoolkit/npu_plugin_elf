@@ -129,7 +129,7 @@ table SummaryHeader{
   // The Activation SHAVE Runtime (Management Kernel) to be used for this schedule
   act_kernel_runtime: ActKernelRuntime;
 
-  // The overall profiling output.
+  // The overall profiling output. 
   profiling_output: [TensorReference];
 
   // The field stores the info about preprocessing for each input
@@ -152,8 +152,7 @@ table SummaryHeader{
   // Indicates whether DMA hardware profiling (DMA HWP) is enabled for this inference
   dma_hwp_enabled : bool = false;
 
-  // This tensor represent DMA HWP base to be set by the runtime in CDMA_HWP_ADR for the context the inference
-  // is running in.
+  // This tensor represent DMA HWP base to be set by the runtime in CDMA_HWP_ADR for the context the inference is running in.
   dma_hwp_base : TensorReference;
 
   // This optional tensor points to 8 byte location within profiling_output
