@@ -1166,7 +1166,6 @@ union SoftwareLayerParams{
 
 
 // ------- NN SOFTWARE LAYERS TASKS ------- //
-
 table SNNLayerTask{
   // Allows the GF to configure soft layer specific parameters.
   // The SoftwareLayerParam type implies the soft layer type.

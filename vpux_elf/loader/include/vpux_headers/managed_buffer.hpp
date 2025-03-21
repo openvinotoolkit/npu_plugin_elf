@@ -23,6 +23,8 @@ public:
     ManagedBuffer& operator=(const ManagedBuffer& rhs) = delete;
     ManagedBuffer& operator=(ManagedBuffer&& rhs) = delete;
 
+    void resetBuffer(const DeviceBuffer& newBuffer);
+
     virtual ~ManagedBuffer() = default;
 
     virtual std::unique_ptr<ManagedBuffer> createNew() const = 0;

@@ -10,7 +10,9 @@
 #include <memory>
 #include <vpux_loader/vpux_loader.hpp>
 #include "vpux_elf/types/section_header.hpp"
+#include "vpux_elf/utils/error.hpp"
 #include "vpux_headers/buffer_specs.hpp"
+#include "vpux_headers/device_buffer.hpp"
 #include "vpux_headers/device_buffer_container.hpp"
 #include "vpux_headers/managed_buffer.hpp"
 
@@ -466,7 +468,7 @@ VPUXLoader::VPUXLoader(AccessManager* accessor, BufferManager* bufferManager)
           m_userInputsDescriptors(std::make_shared<std::vector<DeviceBuffer>>()),
           m_userOutputsDescriptors(std::make_shared<std::vector<DeviceBuffer>>()),
           m_profOutputsDescriptors(std::make_shared<std::vector<DeviceBuffer>>()),
-          m_loaded(false) {
+          m_loaded(false), m_inferencesMayBeRunInParallel(true) {
     VPUX_ELF_THROW_UNLESS(bufferManager, ArgsError, "Invalid BufferManager pointer");
     m_bufferManager = bufferManager;
     m_reader = std::make_shared<Reader<ELF_Bitness::Elf64>>(m_bufferManager, accessor);
@@ -509,7 +511,9 @@ VPUXLoader::VPUXLoader(const VPUXLoader& other)
           m_symTabOverrideMode(other.m_symTabOverrideMode),
           m_explicitAllocations(other.m_explicitAllocations),
           m_loaded(other.m_loaded),
-          m_symbolSectionTypes(other.m_symbolSectionTypes) {
+          m_symbolSectionTypes(other.m_symbolSectionTypes),
+          m_inferencesMayBeRunInParallel(other.m_inferencesMayBeRunInParallel),
+          m_sharedScratchBuffers(other.m_sharedScratchBuffers) {
     reloadNewBuffers();
     applyRelocations(*m_relocationSectionIndexes);
 }
@@ -530,7 +534,9 @@ VPUXLoader::VPUXLoader(const VPUXLoader& other, const std::vector<SymbolEntry>& 
           m_symTabOverrideMode(other.m_symTabOverrideMode),
           m_explicitAllocations(other.m_explicitAllocations),
           m_loaded(other.m_loaded),
-          m_symbolSectionTypes(other.m_symbolSectionTypes) {
+          m_symbolSectionTypes(other.m_symbolSectionTypes),
+          m_inferencesMayBeRunInParallel(other.m_inferencesMayBeRunInParallel),
+          m_sharedScratchBuffers(other.m_sharedScratchBuffers) {
     reloadNewBuffers();
     applyRelocations(*m_relocationSectionIndexes);
 }
@@ -543,6 +549,7 @@ VPUXLoader& VPUXLoader::operator=(const VPUXLoader& other) {
     m_bufferManager = other.m_bufferManager;
     m_reader = other.m_reader;
     m_inferBufferContainer = other.m_inferBufferContainer;
+    m_backupBufferContainer = other.m_backupBufferContainer;
     m_runtimeSymTabs = other.m_runtimeSymTabs;
     m_relocationSectionIndexes = other.m_relocationSectionIndexes;
     m_jitRelocations = other.m_jitRelocations;
@@ -554,6 +561,8 @@ VPUXLoader& VPUXLoader::operator=(const VPUXLoader& other) {
     m_symbolSectionTypes = other.m_symbolSectionTypes;
     m_sectionMap = other.m_sectionMap;
     m_loaded = other.m_loaded;
+    m_inferencesMayBeRunInParallel = other.m_inferencesMayBeRunInParallel;
+    m_sharedScratchBuffers = other.m_sharedScratchBuffers;
 
     reloadNewBuffers();
     applyRelocations(*m_relocationSectionIndexes);
@@ -673,9 +682,22 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTa
             auto sectionSize = sectionHeader->sh_size;
             auto sectionAlignment = sectionHeader->sh_addralign;
 
+            VPUX_ELF_THROW_WHEN((sectionFlags & SHF_WRITE) == 0, SectionError, "Allocatable section is read-only");
+
+            if (!m_inferencesMayBeRunInParallel) {
+                sectionFlags |= elf::SHARABLE_BUFFER_ENABLED;
+            }
+
             auto& inferBufferInfo = m_inferBufferContainer.safeInitBufferInfoAtIndex(sectionCtr);
             inferBufferInfo.mBuffer = m_inferBufferContainer.buildAllocatedDeviceBuffer(
                     BufferSpecs(sectionAlignment, sectionSize, sectionFlags));
+
+            if (inferBufferInfo.mBuffer->getBuffer().cpu_addr() == nullptr) {
+                // driver did share scratch and returned empty allocation
+                // that is to be updated later
+                m_sharedScratchBuffers.push_back(sectionCtr);
+            }
+
             inferBufferInfo.mBufferDetails.mHasData = false;
             inferBufferInfo.mBufferDetails.mIsShared = false;
             inferBufferInfo.mBufferDetails.mIsProcessed = true;
@@ -729,7 +751,12 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTa
     // Load actual buffers for the first time
     loadBuffers();
 
-    applyRelocations(*m_relocationSectionIndexes);
+    if (m_sharedScratchBuffers.empty()) {
+        // execute relocations only if sharing did not happen
+        // otherwise we have empty allocations and cannot trigger relocations
+        // unless shared allocations become available (after updateSharedScratchBuffers)
+        applyRelocations(*m_relocationSectionIndexes);
+    }
 
     VPUX_ELF_LOG(LogLevel::LOG_INFO, "Allocated %zu sections", m_inferBufferContainer.getBufferInfoCount());
 
@@ -1154,5 +1181,28 @@ std::vector<std::shared_ptr<ManagedBuffer>> VPUXLoader::getSectionsOfType(elf::E
 
     return retVector;
 };
+
+void VPUXLoader::setInferencesMayBeRunInParallel(bool inferencesMayBeRunInParallel) {
+    m_inferencesMayBeRunInParallel = inferencesMayBeRunInParallel;
+}
+
+bool VPUXLoader::getInferencesMayBeRunInParallel() const {
+    return m_inferencesMayBeRunInParallel;
+}
+
+void VPUXLoader::updateSharedScratchBuffers(const std::vector<DeviceBuffer>& buffers) {
+    VPUX_ELF_THROW_WHEN(m_sharedScratchBuffers.size() != buffers.size(), RuntimeError, "Incorrect amount of buffers for updateSharedScratchBuffers");
+    if (m_sharedScratchBuffers.empty()) {
+        return;
+    }
+
+    reloadNewBuffers();
+    size_t i = 0;
+    for (const auto& buffer : buffers) {
+        m_inferBufferContainer.getBufferInfoFromIndex(m_sharedScratchBuffers[i++]).mBuffer->resetBuffer(buffer);
+    }
+
+    applyRelocations(*m_relocationSectionIndexes);
+}
 
 }  // namespace elf
